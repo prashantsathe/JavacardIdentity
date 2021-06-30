@@ -22,6 +22,8 @@ final class CryptoProviderImpl implements ICryptoProvider{
 	//private final AESKey aesKey;
     
     //private final AEADCipher aesGcmCipher;
+	private final HMACKey mHmacKey;
+	private final byte[] tempBuffer;
     
 	CryptoProviderImpl() {
 		mHMACSignature = Signature.getInstance(Signature.ALG_HMAC_SHA_256, false);
@@ -45,6 +47,11 @@ final class CryptoProviderImpl implements ICryptoProvider{
 		//aesKey = (AESKey) KeyBuilder.buildKey(
 		//        KeyBuilder.TYPE_AES, KeyBuilder.LENGTH_AES_128, false);
 		//aesGcmCipher = (AEADCipher) Cipher.getInstance(AEADCipher.ALG_AES_GCM, true);
+
+		mHmacKey = (HMACKey) KeyBuilder.buildKey(KeyBuilder.TYPE_HMAC,
+				(short)256, false);
+		
+		tempBuffer = JCSystem.makeTransientByteArray((short)32, JCSystem.CLEAR_ON_RESET);
 	}
 	
 	private KMSEProvider getSEProvider() {
@@ -245,10 +252,9 @@ final class CryptoProviderImpl implements ICryptoProvider{
 					  byte[] info, short infoOffset, short infoLen,
 					  byte[] outDerivedKey, short outDerivedKeyOffset, short expectedDerivedKeyLen) {
 		// HMAC_extract
-		byte[] prk = new byte[32];
-		hkdfExtract(sharedSecret, sharedSecretOffset, sharedSecretLen, salt, saltOffset, saltLen, prk, (short) 0);
+		short prkLen = hkdfExtract(sharedSecret, sharedSecretOffset, sharedSecretLen, salt, saltOffset, saltLen, tempBuffer, (short) 0);
 		//HMAC_expand
-		return hkdfExpand(prk, (short) 0, (short) 32, info, infoOffset, infoLen, outDerivedKey, outDerivedKeyOffset, expectedDerivedKeyLen);
+		return hkdfExpand(tempBuffer, (short) 0, prkLen, info, infoOffset, infoLen, outDerivedKey, outDerivedKeyOffset, expectedDerivedKeyLen);
 	}
 
 	private short hkdfExtract(byte[] ikm, short ikmOff, short ikmLen, byte[] salt, short saltOff, short saltLen,
@@ -269,7 +275,7 @@ final class CryptoProviderImpl implements ICryptoProvider{
 			CryptoException.throwIt(CryptoException.ILLEGAL_VALUE);
 		}
 		HMACKey hmacKey = createHMACKey(prk, prkOff, prkLen);
-		byte[] previousOutput = new byte[32]; // Length of output 32.
+		byte[] previousOutput = tempBuffer; // Length of output 32.
 		byte[] cnt = {(byte) 0};
 		short bytesCopied = 0;
 		short len = 0;
@@ -289,11 +295,8 @@ final class CryptoProviderImpl implements ICryptoProvider{
 		return outLen;
 	}
 	public HMACKey createHMACKey(byte[] secretBuffer, short secretOff, short secretLength) {
-		HMACKey key = null;
-		key = (HMACKey) KeyBuilder.buildKey(KeyBuilder.TYPE_HMAC,
-				KeyBuilder.LENGTH_HMAC_SHA_256_BLOCK_64, false);
-		key.setKey(secretBuffer, secretOff, (short)8);
-		return key;
+		mHmacKey.setKey(secretBuffer, secretOff, secretLength);
+		return mHmacKey;
 	}
 
 	public boolean hmacVerify(byte[] key, short keyOffset, short keyLen, byte[] data, short dataOffset, short dataLen, byte[] mac, short macOffset, short macLen) {
