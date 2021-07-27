@@ -67,9 +67,6 @@ public class CryptoManager {
     // Temporary buffer in memory for status flags
     private final byte[] mStatusFlags;
 
-    //TODO pre-shared key is hardcoded for now but we need to get it through either provisioning or from keymaster
-    private byte[] mPreSharedKey = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
     public CryptoManager(ICryptoProvider cryptoProvider /*AccessControlManager accessControlManager,*/) {
     	mCryptoProvider = cryptoProvider;
     	
@@ -331,16 +328,16 @@ public class CryptoManager {
                                     outDerivedKey, outDerivedKeyOffset, expectedKeySize);
     }
 
-    public byte[] getPresharedHmacKey() {
-        return mPreSharedKey;
-    }
-
     public boolean hmacVerify(byte[] key, short keyOffset, short keyLen,
                               byte[] data, short dataOffset, short dataLen,
                               byte[] mac, short macOffset, short macLen) {
         return mCryptoProvider.hmacVerify(key, keyOffset, keyLen,
                                     data, dataOffset, dataLen,
                                     mac, macOffset, macLen);
+    }
+
+    public boolean validateAuthToken(byte[] tokenBuff, short tokenOff, short tokenLen) {
+        return mCryptoProvider.validateAuthToken(tokenBuff, tokenOff, tokenLen);
     }
 
     public boolean verifyCertByPubKey(byte[] cert, short certOffset, short certLen, byte[] pubKey, short pubKeyOffset, short pubKeyLen) {

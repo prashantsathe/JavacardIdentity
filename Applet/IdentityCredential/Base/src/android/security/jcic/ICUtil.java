@@ -373,7 +373,7 @@ public class ICUtil {
             if (src[(short)(srcOff + i)] != dest[(short)(destOff + i)]) {
                 short thisSrc = (short) (src[(short)(srcOff + i)] & 0x00ff);
                 short thisDest = (short) (dest[(short)(destOff + i)] & 0x00ff);
-                return (byte) (thisSrc >= thisDest ? 1 : -1);
+                return (byte) (thisSrc > thisDest ? 1 : -1);
             }
         }
 

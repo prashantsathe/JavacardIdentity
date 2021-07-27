@@ -72,16 +72,7 @@ public class JCICStoreApplet extends Applet implements ExtendedLength {
         }
 
 
-        if (apdu.isISOInterindustryCLA()) {
-            switch (buf[ISO7816.OFFSET_INS]) {
-            // TODO: In future we might want to support standard ISO operations (select, get
-            // data, etc.).
-
-            default:
-                ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
-                break;
-            }
-        } else {
+        if (!apdu.isISOInterindustryCLA()) {
             switch (buf[ISO7816.OFFSET_INS]) {
 	            case ISO7816.INS_ICS_GET_VERSION:
 	                processGetVersion();
