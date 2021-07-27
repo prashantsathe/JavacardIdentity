@@ -1,0 +1,14 @@
+diff --git a/shared/device.mk b/shared/device.mk
+index aefabbd69..465884f6c 100644
+--- a/shared/device.mk
++++ b/shared/device.mk
+@@ -487,7 +487,8 @@ PRODUCT_PACKAGES += \
+ 
+ # Identity Credential
+ PRODUCT_PACKAGES += \
+-    android.hardware.identity-service.example
++    android.hardware.identity-service.example \
++    android.hardware.identity-service.jcic
+ 
+ # Input Classifier HAL
+ PRODUCT_PACKAGES += \

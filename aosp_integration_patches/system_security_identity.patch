@@ -1,0 +1,13 @@
+diff --git a/identity/CredentialStoreFactory.cpp b/identity/CredentialStoreFactory.cpp
+index 0e901ba..0b7354b 100644
+--- a/identity/CredentialStoreFactory.cpp
++++ b/identity/CredentialStoreFactory.cpp
+@@ -60,7 +60,7 @@ Status CredentialStoreFactory::getCredentialStore(int32_t credentialStoreType,
+     switch (credentialStoreType) {
+     case CREDENTIAL_STORE_TYPE_DEFAULT:
+         if (defaultStore_.get() == nullptr) {
+-            defaultStore_ = createCredentialStore("default");
++            defaultStore_ = createCredentialStore("jcic");
+         }
+         if (defaultStore_.get() == nullptr) {
+             return Status::fromServiceSpecificError(ICredentialStore::ERROR_GENERIC,

@@ -1,0 +1,49 @@
+diff --git a/private/service_contexts b/private/service_contexts
+index 595eef2c8..abf038a5b 100644
+--- a/private/service_contexts
++++ b/private/service_contexts
+@@ -5,6 +5,7 @@ android.hardware.biometrics.fingerprint.IFingerprint/default         u:object_r:
+ android.hardware.gnss.IGnss/default                                  u:object_r:hal_gnss_service:s0
+ android.hardware.health.storage.IStorage/default                     u:object_r:hal_health_storage_service:s0
+ android.hardware.identity.IIdentityCredentialStore/default           u:object_r:hal_identity_service:s0
++android.hardware.identity.IIdentityCredentialStore/jcic              u:object_r:hal_identity_service:s0
+ android.hardware.light.ILights/default                               u:object_r:hal_light_service:s0
+ android.hardware.memtrack.IMemtrack/default                          u:object_r:hal_memtrack_service:s0
+ android.hardware.oemlock.IOemLock/default                            u:object_r:hal_oemlock_service:s0
+diff --git a/public/hal_identity.te b/public/hal_identity.te
+index 8d558ade1..b7c917771 100644
+--- a/public/hal_identity.te
++++ b/public/hal_identity.te
+@@ -4,3 +4,8 @@ binder_call(hal_identity_client, hal_identity_server)
+ hal_attribute_service(hal_identity, hal_identity_service)
+ 
+ binder_call(hal_identity_server, servicemanager)
++#To test identity over socket, allow tcp_socket to hal_identity_server
++allow hal_identity_server self:tcp_socket { connect create write read getattr getopt setopt };
++allow hal_identity_server port_type:tcp_socket name_connect;
++allow hal_identity_server port:tcp_socket { name_connect };
++allow hal_identity_server vendor_data_file:file { open read getattr };
+diff --git a/public/hal_neverallows.te b/public/hal_neverallows.te
+index faec07420..c71298372 100644
+--- a/public/hal_neverallows.te
++++ b/public/hal_neverallows.te
+@@ -39,6 +39,7 @@ neverallow {
+   -hal_wifi_supplicant_server
+   -hal_telephony_server
+   -hal_uwb_server
++  -hal_identity_server
+ } {
+   domain
+   userdebug_or_eng(`-su')
+diff --git a/vendor/file_contexts b/vendor/file_contexts
+index 3f7c8f9b6..e4ec7eeeb 100644
+--- a/vendor/file_contexts
++++ b/vendor/file_contexts
+@@ -45,6 +45,7 @@
+ /(vendor|system/vendor)/bin/hw/android\.hardware\.health\.storage@1\.0-service       u:object_r:hal_health_storage_default_exec:s0
+ /(vendor|system/vendor)/bin/hw/android\.hardware\.health\.storage-service\.default   u:object_r:hal_health_storage_default_exec:s0
+ /(vendor|system/vendor)/bin/hw/android\.hardware\.identity-service.example u:object_r:hal_identity_default_exec:s0
++/(vendor|system/vendor)/bin/hw/android\.hardware\.identity-service.jcic u:object_r:hal_identity_default_exec:s0
+ /(vendor|system/vendor)/bin/hw/android\.hardware\.input\.classifier@1\.0-service     u:object_r:hal_input_classifier_default_exec:s0
+ /(vendor|system/vendor)/bin/hw/android\.hardware\.ir@1\.0-service             u:object_r:hal_ir_default_exec:s0
+ /(vendor|system/vendor)/bin/hw/android\.hardware\.keymaster@3\.0-service      u:object_r:hal_keymaster_default_exec:s0
