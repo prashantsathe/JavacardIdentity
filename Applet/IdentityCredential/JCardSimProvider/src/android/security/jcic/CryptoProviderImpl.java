@@ -185,6 +185,11 @@ public class CryptoProviderImpl implements ICryptoProvider{
 	}
 
 	@Override
+	public boolean validateAuthToken(byte[] tokenData, short tokenOffset, short tokenLen) {
+		return false;//TODO Should we support validation HW token from JCard based Keymaster applet?
+	}
+
+	@Override
 	public boolean verifyCertByPubKey(byte[] cert, short certOffset, short certLen,
 									  byte[] pubKey, short pubKeyOffset, short pubKeyLen) {
 		if(certLen <= 0 || cert[0] != 0x30) {

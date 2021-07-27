@@ -111,6 +111,10 @@ final class JCICPresentation {
 	public void reset() {
 		mDigest.reset();
 		mCryptoManager.setStatusFlag(FLAG_HMAC_INITIALIZED, false);
+		Util.arrayFillNonAtomic(mAuthAndVerificationTokensLongs, mAuthTokenChallengeOffset, LONG_SIZE, (byte)0);
+		Util.arrayFillNonAtomic(mAuthAndVerificationTokensLongs, mAuthTokenSecureUserIdOffset, LONG_SIZE, (byte)0);
+		Util.arrayFillNonAtomic(mAuthAndVerificationTokensLongs, mAuthTokenTimestampOffset, LONG_SIZE, (byte)0);
+		Util.arrayFillNonAtomic(mAuthAndVerificationTokensLongs, mVerificationTokenTimestampOffset, LONG_SIZE, (byte)0);
 	}
 
 	private void updateCborHmac(byte[] data, short dataStart, short dataLen) {
@@ -544,12 +548,14 @@ final class JCICPresentation {
 		}
 		mCBORDecoder.init(receiveBuffer, receivingDataOffset, receivingDataLength);
 		mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
+		mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
 		mCBORDecoder.skipEntry();//challenge
 		mCBORDecoder.skipEntry();//secureUserId
 		mCBORDecoder.skipEntry();//authenticatorId
 		mCBORDecoder.skipEntry();//hardwareAuthenticatorType
 		mCBORDecoder.skipEntry();//timeStamp
 		mCBORDecoder.skipEntry();//mac
+		mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
 		byte intSize = mCBORDecoder.getIntegerSize();
 		if(intSize < LONG_SIZE) {
 			ISOException.throwIt(ISO7816.SW_DATA_INVALID);
@@ -566,6 +572,7 @@ final class JCICPresentation {
 
 		mCBORDecoder.init(receiveBuffer, receivingDataOffset, receivingDataLength);
 		mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
+		mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
 		short authTokenChallengeOffsetLen = ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)0);//challenge
 		Util.arrayCopyNonAtomic(tempBuffer, (short)0, mAuthAndVerificationTokensLongs, (short)(mAuthTokenChallengeOffset + LONG_SIZE - authTokenChallengeOffsetLen), authTokenChallengeOffsetLen);
 		short authTokenSecureUserIdLen = ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)0);//secureUserId
@@ -575,6 +582,7 @@ final class JCICPresentation {
 		short authTokenTimeStampLen = ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)0);//timestamp
 		Util.arrayCopyNonAtomic(tempBuffer, (short)0, mAuthAndVerificationTokensLongs, (short)(mAuthTokenTimestampOffset + LONG_SIZE - authTokenTimeStampLen), authTokenTimeStampLen);
 		mCBORDecoder.skipEntry();//mac
+		mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
 		mCBORDecoder.skipEntry();//verificationTokenChallenge
 		short verificationTokenTimeStampLen = ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)0);//verificationTokenTimestamp
 		Util.arrayCopyNonAtomic(tempBuffer, (short)0, mAuthAndVerificationTokensLongs, (short)(mVerificationTokenTimestampOffset + LONG_SIZE - verificationTokenTimeStampLen), verificationTokenTimeStampLen);
@@ -596,33 +604,8 @@ final class JCICPresentation {
 		if (mCryptoManager.getStatusFlag(CryptoManager.FLAG_TEST_CREDENTIAL)) {
 			return true;
 		}
-		//TODO this need to revisit, currently hardcoded pre-shared key is used which need to get from provision or keymaster.
-		mCBORDecoder.init(receiveBuffer, receivingDataOffset, receivingDataLength);
-		mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
-		short totalLen = 0;
-		byte intSize = mCBORDecoder.getIntegerSize(); //challenge
-		totalLen += ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(tempBufferOffset + totalLen + LONG_SIZE - intSize));
-		intSize = mCBORDecoder.getIntegerSize(); //secureUserId
-		totalLen +=  ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(tempBufferOffset + totalLen + LONG_SIZE - intSize));
-		intSize = mCBORDecoder.getIntegerSize(); //authenticatorId
-		totalLen +=  ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(tempBufferOffset + totalLen + LONG_SIZE - intSize));
-		intSize = mCBORDecoder.getIntegerSize(); //hardwareAuthenticatorType
-		totalLen += ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(tempBufferOffset + totalLen + LONG_SIZE - intSize));
-		intSize = mCBORDecoder.getIntegerSize(); //timeStamp
-		totalLen += ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(tempBufferOffset + totalLen + LONG_SIZE - intSize));
-		short macOffset = totalLen;
-		short macLen = mCBORDecoder.readByteString(tempBuffer, (short)(tempBufferOffset + macOffset));//mac
 
-		// If mac length is zero then token is empty.
-		if (macLen == 1 && tempBuffer[macOffset] == (byte)0) {
-			return false;
-		}
-
-		byte[] preSharedKey = mCryptoManager.getPresharedHmacKey();
-		return mCryptoManager.hmacVerify(
-				preSharedKey, (short)0, (short)preSharedKey.length, //pre-shared key
-				tempBuffer, tempBufferOffset, totalLen, //data
-				tempBuffer, macOffset, macLen); //mac
+		return mCryptoManager.validateAuthToken(receiveBuffer, receivingDataOffset, receivingDataLength);
 	}
 
 	private short processValidateAccessControlProfile(byte[] receiveBuffer, short receivingDataOffset, short receivingDataLength,
