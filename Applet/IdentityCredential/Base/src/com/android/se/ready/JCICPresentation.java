@@ -1,4 +1,4 @@
-package android.security.jcic;
+package com.android.se.ready;
 
 import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
@@ -8,9 +8,9 @@ import javacard.security.KeyBuilder;
 import javacard.security.MessageDigest;
 import javacard.security.Signature;
 
-import static android.security.jcic.CryptoManager.FLAG_HMAC_INITIALIZED;
-import static android.security.jcic.ICConstants.*;
-import static android.security.jcic.ICConstants.LONG_SIZE;
+import static com.android.se.ready.CryptoManager.FLAG_HMAC_INITIALIZED;
+import static com.android.se.ready.ICConstants.*;
+import static com.android.se.ready.ICConstants.LONG_SIZE;
 
 final class JCICPresentation {
 

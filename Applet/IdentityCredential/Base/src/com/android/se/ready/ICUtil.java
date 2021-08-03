@@ -15,14 +15,14 @@
 ** limitations under the License.
 */
 
-package android.security.jcic;
+package com.android.se.ready;
 
 import javacard.framework.ISOException;
 import javacard.framework.Util;
 import javacard.security.MessageDigest;
 
-import static android.security.jcic.ICConstants.*;
-import static android.security.jcic.ICConstants.LONG_SIZE;
+import static com.android.se.ready.ICConstants.*;
+import static com.android.se.ready.ICConstants.LONG_SIZE;
 
 public class ICUtil {
 

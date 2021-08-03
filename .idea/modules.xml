@@ -2,7 +2,11 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/JavacardIdentity.iml" filepath="$PROJECT_DIR$/.idea/JavacardIdentity.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Applet/IdentityCredential/Base/Base.iml" filepath="$PROJECT_DIR$/Applet/IdentityCredential/Base/Base.iml" />
+      <module fileurl="file://$PROJECT_DIR$/TestingTools/JCServer/JCServer.iml" filepath="$PROJECT_DIR$/TestingTools/JCServer/JCServer.iml" />
+      <module fileurl="file://$PROJECT_DIR$/Applet/IdentityCredential/JCardSimProvider/JCardSimProvider.iml" filepath="$PROJECT_DIR$/Applet/IdentityCredential/JCardSimProvider/JCardSimProvider.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../JavaCardKeymaster/Applet/Keymint.iml" filepath="$PROJECT_DIR$/../JavaCardKeymaster/Applet/Keymint.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../JavaCardKeymaster/Applet/JCardSimProvider/Keymint_JCardSimProvider.iml" filepath="$PROJECT_DIR$/../JavaCardKeymaster/Applet/JCardSimProvider/Keymint_JCardSimProvider.iml" />
     </modules>
   </component>
 </project>

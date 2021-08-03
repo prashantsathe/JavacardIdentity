@@ -1,0 +1,15 @@
+<component name="libraryTable">
+  <library name="lib1">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/TestingTools/JCServer/lib/bcprov-jdk15on.jar!/" />
+      <root url="jar://$PROJECT_DIR$/TestingTools/JCServer/lib/ocf_lib.jar!/" />
+      <root url="jar://$PROJECT_DIR$/TestingTools/JCServer/lib/apduio-RELEASE71.jar!/" />
+      <root url="jar://$PROJECT_DIR$/TestingTools/JCServer/lib/bcprov-ext-jdk15on.jar!/" />
+      <root url="jar://$PROJECT_DIR$/TestingTools/JCServer/lib/slf4j-api-1.7.29.jar!/" />
+      <root url="jar://$PROJECT_DIR$/TestingTools/JCServer/lib/jcardsim-3.0.5-SNAPSHOT.jar!/" />
+      <root url="jar://$PROJECT_DIR$/TestingTools/JCServer/lib/ocf.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES />
+  </library>
+</component>

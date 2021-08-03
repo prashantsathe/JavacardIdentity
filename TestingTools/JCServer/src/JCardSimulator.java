@@ -1,23 +1,17 @@
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-
 import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 
-import com.android.javacard.keymaster.KMArray;
-import com.android.javacard.keymaster.KMByteBlob;
-import com.android.javacard.keymaster.KMSEProvider;
-import com.android.javacard.keymaster.KMDecoder;
-import com.android.javacard.keymaster.KMEncoder;
-import com.android.javacard.keymaster.KMEnum;
-import com.android.javacard.keymaster.KMEnumTag;
-import com.android.javacard.keymaster.KMInteger;
-import com.android.javacard.keymaster.KMJCardSimApplet;
-import com.android.javacard.keymaster.KMKeyParameters;
-import com.android.javacard.keymaster.KMKeymasterApplet;
-import com.android.javacard.keymaster.KMSEProvider;
-import com.android.javacard.keymaster.KMType;
-import com.licel.jcardsim.bouncycastle.util.Arrays;
+import com.android.se.ready.KMArray;
+import com.android.se.ready.KMByteBlob;
+import com.android.se.ready.KMSEProvider;
+import com.android.se.ready.KMDecoder;
+import com.android.se.ready.KMEncoder;
+import com.android.se.ready.KMEnum;
+import com.android.se.ready.KMEnumTag;
+import com.android.se.ready.KMInteger;
+import com.android.se.ready.KMJCardSimApplet;
+import com.android.se.ready.KMKeyParameters;
+import com.android.se.ready.KMType;
 import com.licel.jcardsim.smartcardio.CardSimulator;
 import com.licel.jcardsim.utils.AIDUtil;
 
@@ -32,6 +26,7 @@ public class JCardSimulator implements Simulator {
   private KMDecoder decoder;
   private KMSEProvider cryptoProvider;
   ResponseAPDU response;
+  static final String AID = "A00000006203020C010202";
 
   public JCardSimulator() {
     // cryptoProvider = KMCryptoProviderImpl.instance();
@@ -45,7 +40,7 @@ public class JCardSimulator implements Simulator {
   public void initaliseSimulator() throws Exception {
     // Create simulator
     // KMJcardSimulator.jcardSim = true;
-    AID appletAID1 = AIDUtil.create("A000000062");
+    AID appletAID1 = AIDUtil.create(AID);
     simulator.installApplet(appletAID1, KMJCardSimApplet.class);
   }
 
@@ -123,14 +118,14 @@ public class JCardSimulator implements Simulator {
 
   @Override
   public void disconnectSimulator() throws Exception {
-    AID appletAID1 = AIDUtil.create("A000000062");
+    AID appletAID1 = AIDUtil.create(AID);
     // Delete i.e. uninstall applet
     simulator.deleteApplet(appletAID1);
   }
 
   @Override
   public boolean setupKeymasterOnSimulator() throws Exception {
-    AID appletAID1 = AIDUtil.create("A000000062");
+    AID appletAID1 = AIDUtil.create(AID);
     // Select applet
     simulator.selectApplet(appletAID1);
     // provision attest key

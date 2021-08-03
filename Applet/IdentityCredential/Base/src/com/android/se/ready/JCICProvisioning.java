@@ -1,12 +1,11 @@
-package android.security.jcic;
+package com.android.se.ready;
 
 import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.MessageDigest;
 
-import static android.security.jcic.CryptoManager.SHA256_DIGEST_SIZE;
-import static android.security.jcic.ICConstants.*;
+import static com.android.se.ready.ICConstants.*;
 
 /**
  * A class to handle all provisioning related operations
@@ -49,7 +48,7 @@ final class JCICProvisioning {
         mEntryCounts = JCSystem.makeTransientShortArray(MAX_NUM_NAMESPACES, JCSystem.CLEAR_ON_DESELECT);
         mStatusWords = JCSystem.makeTransientShortArray(STATUS_WORDS, JCSystem.CLEAR_ON_DESELECT);
 
-        mAdditionalDataSha256 = JCSystem.makeTransientByteArray(SHA256_DIGEST_SIZE, JCSystem.CLEAR_ON_DESELECT);
+        mAdditionalDataSha256 = JCSystem.makeTransientByteArray(CryptoManager.SHA256_DIGEST_SIZE, JCSystem.CLEAR_ON_DESELECT);
 
         mDigest = mCryptoManager.mDigest;
         mSecondaryDigest = mCryptoManager.mSecondaryDigest;
@@ -66,7 +65,7 @@ final class JCICProvisioning {
 	    Util.arrayFillNonAtomic(mIntCurrentCborSize, (short)0, (short)(INT_SIZE + SHORT_SIZE), (byte)0);
 	    Util.arrayFillNonAtomic(mIntCurrentEntrySize, (short)0, INT_SIZE, (byte)0);
 	    Util.arrayFillNonAtomic(mIntCurrentEntryNumBytesReceived, (short)0, (short)(INT_SIZE + SHORT_SIZE), (byte)0);
-        Util.arrayFillNonAtomic(mAdditionalDataSha256, (short)0, SHA256_DIGEST_SIZE, (byte)0);
+        Util.arrayFillNonAtomic(mAdditionalDataSha256, (short)0, CryptoManager.SHA256_DIGEST_SIZE, (byte)0);
 
         mDigest.reset();
 	    mSecondaryDigest.reset();
@@ -520,10 +519,10 @@ final class JCICProvisioning {
         mCBORDecoder.init(receiveBuffer, receivingDataOffset, receivingDataLength);
         mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
         short additionalDataLen = ICUtil.constAndCalcCBOREntryAdditionalData(mCBORDecoder, mCBOREncoder, mAdditionalDataDigester, receiveBuffer, mCBORDecoder.getCurrentOffset(), receivingDataLength,
-        		outBuffer, (short)0, le, tempBuffer, (short) 0, tempBuffer, SHA256_DIGEST_SIZE);
+        		outBuffer, (short)0, le, tempBuffer, (short) 0, tempBuffer, CryptoManager.SHA256_DIGEST_SIZE);
 
         //Compare calculated hash of additional data with preserved hash from addEntry
-        if(Util.arrayCompare(tempBuffer, (short) 0, mAdditionalDataSha256, (short) 0, SHA256_DIGEST_SIZE) != (byte)0) {
+        if(Util.arrayCompare(tempBuffer, (short) 0, mAdditionalDataSha256, (short) 0, CryptoManager.SHA256_DIGEST_SIZE) != (byte)0) {
         	ISOException.throwIt(ISO7816.SW_DATA_INVALID);
         }
         
@@ -649,7 +648,7 @@ final class JCICProvisioning {
 		mCryptoManager.getCredentialEcKey(tempBuffer, (short) 0);
 		mCBOREncoder.encodeByteString(tempBuffer, (short) 0, CryptoManager.EC_KEY_SIZE);
 		mSecondaryDigest.doFinal(tempBuffer, (short)0, (short) 0, tempBuffer, (short)0); //Data is of 0 size and collect digest in tempBuffer
-		mCBOREncoder.encodeByteString(tempBuffer, (short) 0, SHA256_DIGEST_SIZE);
+		mCBOREncoder.encodeByteString(tempBuffer, (short) 0, CryptoManager.SHA256_DIGEST_SIZE);
 		
 		mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
 		short docTypeLen = mCBORDecoder.readByteString(tempBuffer, (short)0);

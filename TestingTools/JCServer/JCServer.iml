@@ -7,28 +7,10 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="module-library">
-      <library>
-        <CLASSES>
-          <root url="jar://$MODULE_DIR$/lib/apduio-RELEASE71.jar!/" />
-          <root url="jar://$MODULE_DIR$/lib/bcprov-ext-jdk15on.jar!/" />
-          <root url="jar://$MODULE_DIR$/lib/bcprov-jdk15on.jar!/" />
-          <root url="jar://$MODULE_DIR$/lib/jcardsim-3.0.5-SNAPSHOT.jar!/" />
-          <root url="jar://$MODULE_DIR$/lib/slf4j-api-1.7.29.jar!/" />
-          <root url="jar://$MODULE_DIR$/lib/ocf.jar!/" />
-          <root url="jar://$MODULE_DIR$/lib/ocf_lib.jar!/" />
-        </CLASSES>
-        <JAVADOC>
-          <root url="jar://$MODULE_DIR$/lib/ocf.jar!/doc/api" />
-          <root url="jar://$MODULE_DIR$/lib/ocf_lib.jar!/doc/api" />
-        </JAVADOC>
-        <SOURCES>
-          <root url="jar://$MODULE_DIR$/lib/ocf_lib.jar!/" />
-        </SOURCES>
-      </library>
-    </orderEntry>
-    <orderEntry type="module" module-name="JCardSimProvider" />
-    <orderEntry type="module" module-name="Keymaster" />
+    <orderEntry type="library" name="lib1" level="project" />
+    <orderEntry type="module" module-name="Keymint_JCardSimProvider" />
     <orderEntry type="module" module-name="Base" />
+    <orderEntry type="module" module-name="JCardSimProvider" />
+    <orderEntry type="module" module-name="Keymint" />
   </component>
 </module>

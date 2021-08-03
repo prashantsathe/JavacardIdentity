@@ -1,16 +1,12 @@
-package android.security.jcic;
+package com.android.se.ready;
 
-import com.android.javacard.keymaster.*;
+import com.android.se.ready.*;
 import javacard.framework.ISO7816;
 import javacard.framework.ISOException;
 import javacard.framework.Util;
 import javacard.security.*;
 import javacard.security.KeyPair;
 import javacard.security.Signature;
-
-import java.math.BigInteger;
-import java.security.*;
-import java.security.spec.*;
 
 public class CryptoProviderImpl implements ICryptoProvider{
 	private final KMSEProvider kmSEProvider;

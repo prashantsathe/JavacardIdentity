@@ -12,9 +12,9 @@ import com.sun.javacard.apduio.CadTransportException;
  * @author www.codejava.net
  */
 public class JCServer {
-  private static final String JCOP_PROVIDER = "jcop";
+  private static final String JCOP_PROVIDER = "jcop_keymint";
   private static final String JCOP_IDENTITY = "jcop_identity";
-  private static final String JCARDSIM_PROVIDER = "jcardsim";
+  private static final String JCARDSIM_PROVIDER = "jcardsim_keymint";
   private static final String JCARDSIM_IDENTITY = "jcardsim_identity";
 
   public static void main(String[] args) {
@@ -51,6 +51,9 @@ public class JCServer {
       Thread kmServer = new Thread(new AppletServer("Keymaster-JCard", simulator, port));
       kmServer.start();
     } else if (JCARDSIM_IDENTITY.equals(providerName)) {
+      simulator = new JCardSimulator();
+      Thread kmServer = new Thread(new AppletServer("Keymaster", simulator, port));
+      kmServer.start();
       simulator = new JCardSimIdentityCredential();
       Thread icServer = new Thread(new AppletServer("IdentityCredential-JCard", simulator, port + 10));
       icServer.start();
