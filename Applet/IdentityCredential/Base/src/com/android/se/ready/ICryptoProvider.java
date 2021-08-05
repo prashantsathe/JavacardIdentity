@@ -1,4 +1,4 @@
-package android.security.jcic;
+package com.android.se.ready;
 
 public interface ICryptoProvider {
 

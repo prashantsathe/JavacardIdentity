@@ -290,7 +290,7 @@ public class JCOPOpenCard {
     }
   }
 
-  public void installApplet(String capfile, byte[] appletAid, byte[] packageAid) throws JCOPException {
+  public void installApplet(String capfile, byte[] appletAid1, byte[] appletAid2, byte[] packageAid) throws JCOPException {
     try {
       // Load and install applet
       // 1. Load for install
@@ -313,10 +313,17 @@ public class JCOPOpenCard {
       // Install applet.
       byte[] privileges = new byte[] { 0x00 };
       byte[] installParam = new byte[] { (byte) 0xC9, 0x00 };
-      resp = sds.installForInstall(packageAid, appletAid, appletAid, privileges, installParam, null, true);
+      resp = sds.installForInstall(packageAid, appletAid1, appletAid1, privileges, installParam, null, true);
       if (resp.sw() != 0x9000) {
-        System.out.println("Failed to install Applet. error:" + resp.sw());
+        System.out.println("Failed to install Applet1. error:" + resp.sw());
         return;
+      }
+      if(appletAid2 != null) {
+        resp = sds.installForInstall(packageAid, appletAid2, appletAid2, privileges, installParam, null, true);
+        if (resp.sw() != 0x9000) {
+          System.out.println("Failed to install Applet2. error:" + resp.sw());
+          return;
+        }
       }
       System.out.println("Applet installed successfully.");
     } catch (CardTerminalException e) {

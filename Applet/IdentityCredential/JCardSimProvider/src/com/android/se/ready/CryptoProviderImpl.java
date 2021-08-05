@@ -1,16 +1,11 @@
-package android.security.jcic;
+package com.android.se.ready;
 
-import com.android.javacard.keymaster.*;
 import javacard.framework.ISO7816;
 import javacard.framework.ISOException;
 import javacard.framework.Util;
 import javacard.security.*;
 import javacard.security.KeyPair;
 import javacard.security.Signature;
-
-import java.math.BigInteger;
-import java.security.*;
-import java.security.spec.*;
 
 public class CryptoProviderImpl implements ICryptoProvider{
 	private final KMSEProvider kmSEProvider;
@@ -192,7 +187,7 @@ public class CryptoProviderImpl implements ICryptoProvider{
 	@Override
 	public boolean verifyCertByPubKey(byte[] cert, short certOffset, short certLen,
 									  byte[] pubKey, short pubKeyOffset, short pubKeyLen) {
-		if(certLen <= 0 || cert[0] != 0x30) {
+		if(certLen <= 0 || cert[certOffset] != 0x30) {
 			ISOException.throwIt(ISO7816.SW_DATA_INVALID);
 		}
 		short tbsStart = 0;

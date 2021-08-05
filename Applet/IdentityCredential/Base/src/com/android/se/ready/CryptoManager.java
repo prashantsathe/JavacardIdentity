@@ -1,4 +1,4 @@
-package android.security.jcic;
+package com.android.se.ready;
 
 import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
@@ -62,7 +62,7 @@ public class CryptoManager {
     private final RandomData mRandomData;
 
     // Temporary buffer for all cryptography operations
-    private final byte[] mTempBuffer;
+    private final KMByteBlob mTempBuffer;
     
     // Temporary buffer in memory for status flags
     private final byte[] mStatusFlags;
@@ -70,17 +70,19 @@ public class CryptoManager {
     public CryptoManager(ICryptoProvider cryptoProvider /*AccessControlManager accessControlManager,*/) {
     	mCryptoProvider = cryptoProvider;
     	
-        mTempBuffer = JCSystem.makeTransientByteArray((short) (TEMP_BUFFER_SIZE + AES_GCM_IV_SIZE + AES_GCM_TAG_SIZE),
-                JCSystem.CLEAR_ON_DESELECT);
+        //mTempBuffer = JCSystem.makeTransientByteArray((short) (TEMP_BUFFER_SIZE + AES_GCM_IV_SIZE + AES_GCM_TAG_SIZE),
+        //        JCSystem.CLEAR_ON_DESELECT);
+    	//mTempBuffer = KMRepository.instance().getHeap();
+    	mTempBuffer = KMByteBlob.cast(KMByteBlob.instance((short) (TEMP_BUFFER_SIZE + AES_GCM_IV_SIZE + AES_GCM_TAG_SIZE)));
 
         mStatusFlags = JCSystem.makeTransientByteArray((short)(STATUS_FLAGS_SIZE), JCSystem.CLEAR_ON_DESELECT);
 
         // Secure Random number generation for HBK
         mRandomData = RandomData.getInstance(RandomData.ALG_TRNG);
-        mRandomData.nextBytes(mTempBuffer, (short)0, AES_GCM_KEY_SIZE);
+        mRandomData.nextBytes(mTempBuffer.getBuffer(), mTempBuffer.getStartOff(), AES_GCM_KEY_SIZE);
         mHBK = new byte[AES_GCM_KEY_SIZE];
-        Util.arrayCopyNonAtomic(mTempBuffer, (short) 0, mHBK, (short) 0, AES_GCM_KEY_SIZE);
-        Util.arrayFillNonAtomic(mTempBuffer, (byte)0, AES_GCM_KEY_SIZE, (byte)0);
+        Util.arrayCopyNonAtomic(mTempBuffer.getBuffer(), mTempBuffer.getStartOff(), mHBK, (short) 0, AES_GCM_KEY_SIZE);
+        Util.arrayFillNonAtomic(mTempBuffer.getBuffer(), mTempBuffer.getStartOff(), AES_GCM_KEY_SIZE, (byte)0);
 
         // Create the storage key byte array 
         mCredentialStorageKey = JCSystem.makeTransientByteArray(AES_GCM_KEY_SIZE, JCSystem.CLEAR_ON_RESET);
@@ -205,7 +207,7 @@ public class CryptoManager {
         mRandomData.nextBytes(tempBuffer, offset, length);
     }
     
-    byte[] getTempBuffer() {
+    KMByteBlob getTempBuffer() {
     	return mTempBuffer;
     }
     

@@ -15,7 +15,7 @@
 ** limitations under the License.
 */
 
-package android.security.jcic;
+package com.android.se.ready;
 
 import javacard.security.ECKey;
 

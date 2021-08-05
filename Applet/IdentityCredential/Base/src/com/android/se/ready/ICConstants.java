@@ -1,4 +1,4 @@
-package android.security.jcic;
+package com.android.se.ready;
 
 class ICConstants {
     public static final byte BYTE_SIZE = 1;
