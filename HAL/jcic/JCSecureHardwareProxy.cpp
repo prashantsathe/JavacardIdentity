@@ -318,7 +318,7 @@ optional<vector<uint8_t>> JCSecureHardwareProvisioningProxy::createCredentialKey
     const vector<uint8_t> pubKey = pubKeyBstr->value();
     //TODO currently attestation certificate is created from SoftKeyMaster, we need to get from applet.
     optional<vector<vector<uint8_t>>> certChain =  android::hardware::identity::support::createAttestationForEcPublicKey(
-                    pubKey, challenge, applicationId, isTestCredential);
+                    pubKey, challenge, applicationId/*, isTestCredential*/);
     // Extract certificate chain.
     vector<uint8_t> pubKeyCert =
             android::hardware::identity::support::certificateChainJoin(certChain.value());
@@ -928,17 +928,24 @@ bool JCSecureHardwarePresentationProxy::setAuthToken(
         uint64_t verificationTokenChallenge, uint64_t verificationTokenTimestamp,
         int verificationTokenSecurityLevel, const vector<uint8_t>& verificationTokenMac) {
     LOG(INFO) << "JCSecureHardwarePresentationProxy setAuthToken called";
-    cppbor::Array pArray;
-    pArray.add(challenge)
+	vector<uint8_t> parametersVerified;
+	cppbor::Array pAuthToken;
+    pAuthToken.add(challenge)
         .add(secureUserId)
         .add(authenticatorId)
         .add(hardwareAuthenticatorType)
         .add(timeStamp)
-        .add(mac)
-        .add(verificationTokenChallenge)
+        .add(mac);
+    cppbor::Array pVerificationToken;
+	pVerificationToken.add(verificationTokenChallenge)
         .add(verificationTokenTimestamp)
+		.add(parametersVerified)
         .add(verificationTokenSecurityLevel)
         .add(verificationTokenMac);
+    cppbor::Array pArray;
+	pArray.add(std::move(pAuthToken))
+		.add(std::move(pVerificationToken));
+
     vector<uint8_t> encodedCbor = pArray.encode();
 
     CommandApdu command{AppletConnection::CLA_PROPRIETARY, AppletConnection::INS_ICS_SET_AUTH_TOKEN, 0, 0, encodedCbor.size(), 0};
