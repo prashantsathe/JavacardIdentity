@@ -35,15 +35,15 @@ public class JCServer {
       Thread kmServer = new Thread(new AppletServer("Keymaster", simulator, port));
       kmServer.start();
     } else if (JCOP_IDENTITY.equals(providerName)) {
-      if (args.length < 8) {
+      if (args.length < 5) {
         System.out.println("Both keymaster and identity credential AppletAIDs, PackageAIDs and cap file paths are expected as arguments for JCOP Identity Credential.");
         return;
       }
       //simulator = new JCOPSimulator(args[2], args[3], args[4], args[5], args[6], args[7]);
-      simulator = new JCOPSimulator(args[2], args[3], args[4]);
+      /*simulator = new JCOPSimulator(args[2], args[3], args[5]);
       Thread kmServer = new Thread(new AppletServer("Keymaster", simulator, port));
-      kmServer.start();
-      simulator = new JCOPSimulator(null, null, null, args[5], args[6], args[7]);
+      kmServer.start();*/
+      simulator = new JCOPSimulator(args[2], args[3], args[5], args[2], args[4], args[5]);
       Thread icServer = new Thread(new AppletServer("IdentityCredential", simulator, port + 10));
       icServer.start();
     } else if (JCARDSIM_PROVIDER.equals(providerName)) {
@@ -51,6 +51,9 @@ public class JCServer {
       Thread kmServer = new Thread(new AppletServer("Keymaster-JCard", simulator, port));
       kmServer.start();
     } else if (JCARDSIM_IDENTITY.equals(providerName)) {
+      simulator = new JCardSimulator();
+      Thread kmServer = new Thread(new AppletServer("Keymaster-JCard", simulator, port));
+      kmServer.start();
       simulator = new JCardSimIdentityCredential();
       Thread icServer = new Thread(new AppletServer("IdentityCredential-JCard", simulator, port + 10));
       icServer.start();

@@ -15,7 +15,7 @@
 ** limitations under the License.
 */
 
-package android.security.jcic;
+package com.android.se.ready;
 
 public interface ISO7816 extends javacard.framework.ISO7816 {
     /**

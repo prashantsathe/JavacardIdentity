@@ -4,13 +4,13 @@ import javax.smartcardio.ResponseAPDU;
 import com.licel.jcardsim.smartcardio.CardSimulator;
 import com.licel.jcardsim.utils.AIDUtil;
 
-import android.security.jcic.JCardSimJCICStoreApplet;
+import com.android.se.ready.JCardSimJCICStoreApplet;
 import javacard.framework.AID;
 
 public class JCardSimIdentityCredential implements Simulator {
 	private CardSimulator simulator;
 	private ResponseAPDU response;
-	static final String AID = "A00000006203020C010102";
+	static final String AID = "A00000006203020C010203";
 
 	public JCardSimIdentityCredential() {
 	    simulator = new CardSimulator();

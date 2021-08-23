@@ -1,23 +1,17 @@
-import java.nio.ByteBuffer;
-import java.util.ArrayList;
-
 import javax.smartcardio.CommandAPDU;
 import javax.smartcardio.ResponseAPDU;
 
-import com.android.javacard.keymaster.KMArray;
-import com.android.javacard.keymaster.KMByteBlob;
-import com.android.javacard.keymaster.KMSEProvider;
-import com.android.javacard.keymaster.KMDecoder;
-import com.android.javacard.keymaster.KMEncoder;
-import com.android.javacard.keymaster.KMEnum;
-import com.android.javacard.keymaster.KMEnumTag;
-import com.android.javacard.keymaster.KMInteger;
-import com.android.javacard.keymaster.KMJCardSimApplet;
-import com.android.javacard.keymaster.KMKeyParameters;
-import com.android.javacard.keymaster.KMKeymasterApplet;
-import com.android.javacard.keymaster.KMSEProvider;
-import com.android.javacard.keymaster.KMType;
-import com.licel.jcardsim.bouncycastle.util.Arrays;
+import com.android.se.ready.KMArray;
+import com.android.se.ready.KMByteBlob;
+import com.android.se.ready.KMSEProvider;
+import com.android.se.ready.KMDecoder;
+import com.android.se.ready.KMEncoder;
+import com.android.se.ready.KMEnum;
+import com.android.se.ready.KMEnumTag;
+import com.android.se.ready.KMInteger;
+import com.android.se.ready.KMJCardSimApplet;
+import com.android.se.ready.KMKeyParameters;
+import com.android.se.ready.KMType;
 import com.licel.jcardsim.smartcardio.CardSimulator;
 import com.licel.jcardsim.utils.AIDUtil;
 

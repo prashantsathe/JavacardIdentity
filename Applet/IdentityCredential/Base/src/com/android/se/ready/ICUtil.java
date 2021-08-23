@@ -15,14 +15,11 @@
 ** limitations under the License.
 */
 
-package android.security.jcic;
+package com.android.se.ready;
 
 import javacard.framework.ISOException;
 import javacard.framework.Util;
 import javacard.security.MessageDigest;
-
-import static android.security.jcic.ICConstants.*;
-import static android.security.jcic.ICConstants.LONG_SIZE;
 
 public class ICUtil {
 
@@ -178,7 +175,7 @@ public class ICUtil {
             numPairs += 2;
             if(withSecureUserId) {
                 byte intSize = cborDecoder.getIntegerSize();
-                if(intSize == BYTE_SIZE) {
+                if(intSize == ICConstants.BYTE_SIZE) {
                     short secureUserId = cborDecoder.readInt8();
                     if(secureUserId > (short)0) {
                         secureUserIdPresent = true;
@@ -200,7 +197,7 @@ public class ICUtil {
             numPairs += 1;
         }
         cborEncoder.startMap(numPairs);
-        cborEncoder.encodeTextString(STR_ID, (short)0, (short)STR_ID.length);
+        cborEncoder.encodeTextString(ICConstants.STR_ID, (short)0, (short) ICConstants.STR_ID.length);
         if(id < (short)256) {
             cborEncoder.encodeUInt8((byte)id);
         } else {
@@ -208,7 +205,7 @@ public class ICUtil {
         }
         if(readerCertSize > (short)0) {
             //We have already traversed up to readerCertificate, so encode it from decoder
-            cborEncoder.encodeTextString(STR_READER_CERTIFICATE, (short)0, (short)STR_READER_CERTIFICATE.length);
+            cborEncoder.encodeTextString(ICConstants.STR_READER_CERTIFICATE, (short)0, (short) ICConstants.STR_READER_CERTIFICATE.length);
             //short encodeReaderCertOffset = cborEncoder.startByteString(readerCertSize);
             //Util.arrayCopyNonAtomic(cborDecoder.getBuffer(), cborDecoder.getCurrentOffset(), outBuff, encodeReaderCertOffset, readerCertSize);
             //cborEncoder.increaseOffset(readerCertSize);
@@ -221,37 +218,37 @@ public class ICUtil {
         cborDecoder.skipEntry();//id
         userAuthRequired = cborDecoder.readBoolean();//userAuthRequired
         if(userAuthRequired) {
-            cborEncoder.encodeTextString(STR_USER_AUTH_REQUIRED, (short)0, (short)STR_USER_AUTH_REQUIRED.length);
+            cborEncoder.encodeTextString(ICConstants.STR_USER_AUTH_REQUIRED, (short)0, (short) ICConstants.STR_USER_AUTH_REQUIRED.length);
             cborEncoder.encodeBoolean(userAuthRequired);
-            cborEncoder.encodeTextString(STR_TIMEOUT_MILIS, (short)0, (short)STR_TIMEOUT_MILIS.length);
+            cborEncoder.encodeTextString(ICConstants.STR_TIMEOUT_MILIS, (short)0, (short) ICConstants.STR_TIMEOUT_MILIS.length);
             byte intSize = cborDecoder.getIntegerSize();
-            if(intSize == BYTE_SIZE) {
+            if(intSize == ICConstants.BYTE_SIZE) {
                 //outBuffer[cborEncoder.getCurrentOffsetAndIncrease((short) 1)] = (CBORBase.TYPE_BYTE_STRING << 5) | CBORBase.ENCODED_ONE_BYTE;
                 cborEncoder.encodeUInt8(cborDecoder.readInt8());
-            } else if (intSize == SHORT_SIZE) {
+            } else if (intSize == ICConstants.SHORT_SIZE) {
                 outBuff[cborEncoder.getCurrentOffsetAndIncrease((short) 1)] = (CBORBase.TYPE_UNSIGNED_INTEGER << 5) | CBORBase.ENCODED_TWO_BYTES;
                 Util.arrayCopyNonAtomic(inBuff, (short)(cborDecoder.getCurrentOffset() + 1), outBuff, cborEncoder.getCurrentOffsetAndIncrease(intSize), (short) intSize);
-            } else if(intSize == INT_SIZE) {
+            } else if(intSize == ICConstants.INT_SIZE) {
                 outBuff[cborEncoder.getCurrentOffsetAndIncrease((short) 1)] = (CBORBase.TYPE_UNSIGNED_INTEGER << 5) | CBORBase.ENCODED_FOUR_BYTES;
                 Util.arrayCopyNonAtomic(inBuff, (short)(cborDecoder.getCurrentOffset() + 1), outBuff, cborEncoder.getCurrentOffsetAndIncrease(intSize), (short) intSize);
-            } else if(intSize == LONG_SIZE) {
+            } else if(intSize == ICConstants.LONG_SIZE) {
                 outBuff[cborEncoder.getCurrentOffsetAndIncrease((short) 1)] = (CBORBase.TYPE_UNSIGNED_INTEGER << 5) | CBORBase.ENCODED_EIGHT_BYTES;
                 Util.arrayCopyNonAtomic(inBuff, (short)(cborDecoder.getCurrentOffset() + 1), outBuff, cborEncoder.getCurrentOffsetAndIncrease(intSize), (short) intSize);
             }
 
             if(withSecureUserId && secureUserIdPresent) {
-                cborEncoder.encodeTextString(STR_SECURE_USER_ID, (short)0, (short)STR_SECURE_USER_ID.length);
+                cborEncoder.encodeTextString(ICConstants.STR_SECURE_USER_ID, (short)0, (short) ICConstants.STR_SECURE_USER_ID.length);
                 intSize = cborDecoder.getIntegerSize();
-                if(intSize == BYTE_SIZE) {
+                if(intSize == ICConstants.BYTE_SIZE) {
                     //outBuffer[cborEncoder.getCurrentOffsetAndIncrease((short) 1)] = (CBORBase.TYPE_BYTE_STRING << 5) | CBORBase.ENCODED_ONE_BYTE;
                     cborEncoder.encodeUInt8(cborDecoder.readInt8());
-                } else if (intSize == SHORT_SIZE) {
+                } else if (intSize == ICConstants.SHORT_SIZE) {
                     outBuff[cborEncoder.getCurrentOffsetAndIncrease((short) 1)] = (CBORBase.TYPE_UNSIGNED_INTEGER << 5) | CBORBase.ENCODED_TWO_BYTES;
                     Util.arrayCopyNonAtomic(inBuff, (short)(cborDecoder.getCurrentOffset() + 1), outBuff, cborEncoder.getCurrentOffsetAndIncrease(intSize), (short) intSize);
-                } else if(intSize == INT_SIZE) {
+                } else if(intSize == ICConstants.INT_SIZE) {
                     outBuff[cborEncoder.getCurrentOffsetAndIncrease((short) 1)] = (CBORBase.TYPE_UNSIGNED_INTEGER << 5) | CBORBase.ENCODED_FOUR_BYTES;
                     Util.arrayCopyNonAtomic(inBuff, (short)(cborDecoder.getCurrentOffset() + 1), outBuff, cborEncoder.getCurrentOffsetAndIncrease(intSize), (short) intSize);
-                } else if(intSize == LONG_SIZE) {
+                } else if(intSize == ICConstants.LONG_SIZE) {
                     outBuff[cborEncoder.getCurrentOffsetAndIncrease((short) 1)] = (CBORBase.TYPE_UNSIGNED_INTEGER << 5) | CBORBase.ENCODED_EIGHT_BYTES;
                     Util.arrayCopyNonAtomic(inBuff, (short)(cborDecoder.getCurrentOffset() + 1), outBuff, cborEncoder.getCurrentOffsetAndIncrease(intSize), (short) intSize);
                 }
@@ -275,34 +272,34 @@ public class ICUtil {
         cborDecoder.readMajorType(CBORBase.TYPE_ARRAY);
         cborEncoder.startMap((short) 3);
         //encode key as Namespace string
-        cborEncoder.encodeTextString(STR_NAME_SPACE, (short)0, (short)STR_NAME_SPACE.length);
+        cborEncoder.encodeTextString(ICConstants.STR_NAME_SPACE, (short)0, (short) ICConstants.STR_NAME_SPACE.length);
         //Hold nameSpace in temp variable
         short nameSpaceLen = cborDecoder.readByteString(tempBuffer, tempBuffOffset);
         //encode nameSpace string
         cborEncoder.encodeTextString(tempBuffer, tempBuffOffset, nameSpaceLen);
         //encode key as Name string, lets use it from Namespace string
-        cborEncoder.encodeTextString(STR_NAME_SPACE, (short)0, (short)4);
+        cborEncoder.encodeTextString(ICConstants.STR_NAME_SPACE, (short)0, (short)4);
         //read name parameter
         short nameLen = cborDecoder.readByteString(tempBuffer, tempBuffOffset);
         cborEncoder.encodeTextString(tempBuffer, tempBuffOffset, nameLen);
 
         //encode key as AccessControlProfileIds string
-        cborEncoder.encodeTextString(STR_ACCESS_CONTROL_PROFILE_IDS, (short)0, (short)STR_ACCESS_CONTROL_PROFILE_IDS.length);
+        cborEncoder.encodeTextString(ICConstants.STR_ACCESS_CONTROL_PROFILE_IDS, (short)0, (short) ICConstants.STR_ACCESS_CONTROL_PROFILE_IDS.length);
         short acpIdLen = cborDecoder.readMajorType(CBORBase.TYPE_ARRAY);
         cborEncoder.startArray(acpIdLen);
         for(short i = (short)0; i < acpIdLen; i++) {
             byte intSize = cborDecoder.getIntegerSize();
-            if(intSize == BYTE_SIZE) {
+            if(intSize == ICConstants.BYTE_SIZE) {
                 cborEncoder.encodeUInt8(cborDecoder.readInt8());
-            } else if(intSize == SHORT_SIZE) {
+            } else if(intSize == ICConstants.SHORT_SIZE) {
                 cborEncoder.encodeUInt16(cborDecoder.readInt16());
             } else {
                 ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
             }
         }
-        messageDigest.doFinal(outBuff, outOffset, cborEncoder.getCurrentOffset(), shaOut, shaOutOff);
+        messageDigest.doFinal(outBuff, outOffset, (short)(cborEncoder.getCurrentOffset() - outOffset), shaOut, shaOutOff);
 
-        return cborEncoder.getCurrentOffset();
+        return (short)(cborEncoder.getCurrentOffset() - outOffset);
     }
 
     /**
@@ -317,15 +314,15 @@ public class ICUtil {
             ISOException.throwIt(ISO7816.SW_DATA_INVALID);
         }
         byte intSize = cborDecoder.getIntegerSize();
-        if(intSize == BYTE_SIZE) {
+        if(intSize == ICConstants.BYTE_SIZE) {
             outBuff[outBuffOffset] = cborDecoder.readInt8();
-        } else if (intSize == SHORT_SIZE) {
+        } else if (intSize == ICConstants.SHORT_SIZE) {
             Util.arrayCopyNonAtomic(cborDecoder.getBuffer(), (short)(cborDecoder.getCurrentOffset() + 1), outBuff, outBuffOffset, intSize);
             cborDecoder.increaseOffset((short)(intSize + 1));
-        } else if(intSize == INT_SIZE) {
+        } else if(intSize == ICConstants.INT_SIZE) {
             Util.arrayCopyNonAtomic(cborDecoder.getBuffer(), (short)(cborDecoder.getCurrentOffset() + 1), outBuff, outBuffOffset, intSize);
             cborDecoder.increaseOffset((short)(intSize + 1));
-        } else if(intSize == LONG_SIZE) {
+        } else if(intSize == ICConstants.LONG_SIZE) {
             Util.arrayCopyNonAtomic(cborDecoder.getBuffer(), (short)(cborDecoder.getCurrentOffset() + 1), outBuff, outBuffOffset, intSize);
             cborDecoder.increaseOffset((short)(intSize + 1));
         }
@@ -341,9 +338,9 @@ public class ICUtil {
         if (size < 24) {
             return (byte)0;
         } else if (size <= 0xff) {
-            return BYTE_SIZE;
+            return ICConstants.BYTE_SIZE;
         }
-        return SHORT_SIZE;
+        return ICConstants.SHORT_SIZE;
     }
 
     /**
@@ -362,7 +359,7 @@ public class ICUtil {
         if(i > 0) {
             valueSize = (short) (valueSize - i);
         }
-        return  valueSize > INT_SIZE ? LONG_SIZE : valueSize > SHORT_SIZE ? INT_SIZE : valueSize > BYTE_SIZE ? SHORT_SIZE : (short)(valueBuff[(short)(valueOffset + i)] & 0x00FF) > (short)24 ? BYTE_SIZE : (byte)0;
+        return  valueSize > ICConstants.INT_SIZE ? ICConstants.LONG_SIZE : valueSize > ICConstants.SHORT_SIZE ? ICConstants.INT_SIZE : valueSize > ICConstants.BYTE_SIZE ? ICConstants.SHORT_SIZE : (short)(valueBuff[(short)(valueOffset + i)] & 0x00FF) > (short)24 ? ICConstants.BYTE_SIZE : (byte)0;
     }
 
     public static byte arrayCompare(byte src[], short srcOff, byte dest[], short destOff, short length) {
