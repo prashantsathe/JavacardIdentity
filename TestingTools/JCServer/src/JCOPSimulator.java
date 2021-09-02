@@ -38,7 +38,8 @@ public class JCOPSimulator implements Simulator {
         try {
           openCardSim.connect();
           if(kmCapFilePath != null && icCapFilePath != null) {
-            openCardSim.installApplet(kmCapFilePath, kmAppletId, icAppletId, kmPackageAid);
+            openCardSim.installApplet(kmCapFilePath, kmAppletId, null, kmPackageAid);
+            openCardSim.installApplet(icCapFilePath, icAppletId, null, icPackageAid);
           } else {
             if (kmCapFilePath != null) {
               //In-case applets are installed from eclipse for debug purpose comment below line
@@ -74,7 +75,7 @@ public class JCOPSimulator implements Simulator {
   public boolean setupKeymasterOnSimulator() throws Exception {
     synchronized (openCardSim) {
       if (kmCapFilePath != null) {
-        //openCardSim.selectApplet(kmAppletId);
+        openCardSim.selectApplet(kmAppletId);
       }
       if (icCapFilePath != null) {
         //openCardSim.selectApplet(icAppletId); IC applet is selected from HAL.
@@ -102,7 +103,7 @@ public class JCOPSimulator implements Simulator {
     synchronized (openCardSim) {
       response = openCardSim.transmitCommand(cmdApdu);
     }
-    if(response.sw() != 36864 || Utils.byteArrayToHexString(apdu).startsWith("8015")) {
+    if(response.sw() != 36864) {
       System.out.println("Response = " + Utils.byteArrayToHexString(response.getBytes()));
     }
     return intToByteArray(response.sw());
