@@ -1,10 +1,15 @@
 package com.android.se.ready;
 
+import javacard.framework.AID;
 import javacard.framework.APDU;
 import javacard.framework.Applet;
 import javacard.framework.ISOException;
+import javacard.framework.JCSystem;
+import javacard.framework.Shareable;
 import javacard.framework.Util;
 import javacardx.apdu.ExtendedLength;
+
+import com.android.javacard.keymaster.*;
 
 public class JCICStoreApplet extends Applet implements ExtendedLength {
 
@@ -35,26 +40,36 @@ public class JCICStoreApplet extends Applet implements ExtendedLength {
     private final JCICPresentation mPresentation;
 
     private final APDUManager mAPDUManager;
+    // Temporary buffer for all operations
+    private static ICByteBlob mTempBuffer;
 
     public JCICStoreApplet(ICryptoProvider cryptoProvider) {
         mCBORDecoder = new CBORDecoder();
         
         mCBOREncoder = new CBOREncoder();
+        
+        byte[] buffer = JCSystem.makeTransientByteArray((short)(ICConstants.TEMP_BUFFER_SIZE + ICConstants.AES_GCM_IV_SIZE + ICConstants.AES_GCM_TAG_SIZE), JCSystem.CLEAR_ON_RESET);
+        
+        mTempBuffer = new ICByteBlob(buffer, (short)0, (short)buffer.length);
 
-        mAPDUManager = new APDUManager((byte) (CryptoManager.AES_GCM_IV_SIZE + CryptoManager.AES_GCM_TAG_SIZE));
+        mAPDUManager = new APDUManager((byte) (ICConstants.AES_GCM_IV_SIZE + ICConstants.AES_GCM_TAG_SIZE));
 
         CryptoManager cryptoManager = new CryptoManager(cryptoProvider);
-    	
+
 		mProvisioning = new JCICProvisioning(cryptoManager, mCBORDecoder, mCBOREncoder);
 		
 		mPresentation = new JCICPresentation(cryptoManager, mCBORDecoder, mCBOREncoder);
-		
+
     }
 
     public static void install(byte[] bArray, short bOffset, byte bLength) {
         JCICStoreApplet applet = new JCICStoreApplet(new CryptoProviderImpl());
         applet.register();
     }
+    
+    public boolean select() {
+		return super.select();
+	}
 
 	public void process(APDU apdu) throws ISOException {
         byte[] buf = apdu.getBuffer();
@@ -82,6 +97,9 @@ public class JCICStoreApplet extends Applet implements ExtendedLength {
 	                break;
 	            case ISO7816.INS_ICS_GET_HARDWARE_INFO:
 	                processGetHardwareInfo();
+	                break;
+	            case ISO7816.INS_ICS_GET_ATTEST_CERT_CHAIN:
+	                processGetAttestCertChain();
 	                break;
 	            case ISO7816.INS_ICS_PROVISIONING_INIT:
 	            case ISO7816.INS_ICS_CREATE_CREDENTIAL_KEY:
@@ -134,7 +152,11 @@ public class JCICStoreApplet extends Applet implements ExtendedLength {
         mAPDUManager.sendAll();
     }
 
-    /**
+	public static ICByteBlob getTempByteBlob() {
+		return mTempBuffer;
+	}
+
+	/**
      * Process incoming PING requests.
      */
     private void processPing() {
@@ -204,4 +226,26 @@ public class JCICStoreApplet extends Applet implements ExtendedLength {
         mAPDUManager.setOutgoingLength(mCBOREncoder.getCurrentOffset());
     }
     
+    private void processGetAttestCertChain() {
+    	//We will take byte array of double size of temp buffer size which is required to copy cert chain
+		byte[] globalTempBuffer = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(ICConstants.TEMP_BUFFER_SIZE + ICConstants.TEMP_BUFFER_SIZE));
+    	AID keymasterAID = JCSystem.lookupAID(ICConstants.KEYMASTER_AID, (byte)0, (byte)ICConstants.KEYMASTER_AID.length);
+		if(keymasterAID == null) {
+			ISOException.throwIt((short)1);;
+		}
+		Shareable sharable = JCSystem.getAppletShareableInterfaceObject(keymasterAID, (byte)1);
+        
+    	short certChainLen = ((KMAppletBridge) sharable).getCertChainExt(globalTempBuffer, (short)0);
+
+    	mAPDUManager.setOutgoing();
+        byte[] outBuffer = mAPDUManager.getSendBuffer();
+        short le = mAPDUManager.getOutbufferLength();
+        mCBOREncoder.init(outBuffer, (short) 0, le);
+        mCBOREncoder.startArray((short)2);
+        mCBOREncoder.encodeUInt8((byte)0); //Success
+        mCBOREncoder.startArray((short)1);
+        mCBOREncoder.encodeRawData(globalTempBuffer, (short)0, certChainLen);
+        mAPDUManager.setOutgoingLength(mCBOREncoder.getCurrentOffset());
+		JCSystem.requestObjectDeletion();
+    }
 }

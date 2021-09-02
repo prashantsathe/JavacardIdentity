@@ -30,7 +30,7 @@ public class APDUManager {
     private static final boolean FLAG_COMMON_SENDRECV_BUFFER = false;
     
     // Buffer size for large incoming/outgoing traffic. 
-    public static final short MAXCHUNKSIZE = (short) 8 * 0xFF; 
+    public static final short MAXCHUNKSIZE = (short) 10 * 0xFF;
 
     // Buffer size for processing outgoing traffic
     private static final short SEND_BUFFER_SIZE = FLAG_COMMON_SENDRECV_BUFFER ? 261 : MAXCHUNKSIZE;

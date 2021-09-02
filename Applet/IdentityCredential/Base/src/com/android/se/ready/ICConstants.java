@@ -6,6 +6,15 @@ class ICConstants {
     public static final byte INT_SIZE = 4;
     public static final byte LONG_SIZE = 8;
 
+    public static final byte AES_GCM_KEY_SIZE = 16;
+    public static final byte AES_GCM_TAG_SIZE = 16;
+    public static final byte AES_GCM_IV_SIZE = 12;
+    public static final byte EC_KEY_SIZE = 32;
+    public static final byte SHA256_DIGEST_SIZE = 32;
+
+    public static final short TEMP_BUFFER_SIZE = 2048;
+    public static final short TEMP_BUFFER_IV_POS = TEMP_BUFFER_SIZE;
+    public static final short TEMP_BUFFER_GCM_TAG_POS = TEMP_BUFFER_IV_POS + AES_GCM_IV_SIZE;
 
     public static final short MAX_NUM_ACCESS_CONTROL_PROFILE_IDS = 32;
     public static final short MAX_NUM_NAMESPACES = 32;
@@ -18,6 +27,10 @@ class ICConstants {
     public static final byte STATUS_NUM_ENTRY_COUNTS = 5;
     public static final byte STATUS_CURRENT_ENTRY = 6;
     public static final byte STATUS_WORDS = 7;
+    
+    public static final byte[] KEYMASTER_AID = new byte[] {(byte)0xA0, 0x00, 0x00, 0x00, 0x62, 0x03, 0x02, 0x0C, 0x01, 0x01, 0x02};
+	
+    public static final byte[] ONE_YEAR_MS = {(byte)0x00, (byte)0x00, (byte)0x00, (byte)0x07, (byte)0x57, (byte)0xB1, (byte)0x2C, (byte)0x00};
 
     public static final byte COSE_SIGN_ALG = (byte)0xF9; //-7
 
@@ -118,9 +131,9 @@ class ICConstants {
 
     //byte X509_CERT_POS_SERIAL_NUM = (short)14;
 
-    public static final byte X509_CERT_POS_VALID_AFTER = (short)76;
+    public static final byte X509_CERT_POS_VALID_NOT_AFTER = (short)91;
 
-    public static final byte X509_CERT_POS_VALID_BEFORE = (short)91;
+    public static final byte X509_CERT_POS_VALID_NOT_BEFORE = (short)76;
 
     public static final short X509_CERT_POS_PUB_KEY = (short)259;
 

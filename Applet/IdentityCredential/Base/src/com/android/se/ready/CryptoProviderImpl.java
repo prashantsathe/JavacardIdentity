@@ -1,8 +1,14 @@
 package com.android.se.ready;
 
+import com.android.javacard.keymaster.KMSEProvider;
+import com.android.javacard.keymaster.KMType;
+import com.android.javacard.keymaster.KMOperation;
+
+import javacard.framework.AID;
 import javacard.framework.ISO7816;
 import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
+import javacard.framework.Shareable;
 import javacard.framework.Util;
 import javacard.security.*;
 import javacardx.crypto.*;
@@ -19,8 +25,6 @@ final class CryptoProviderImpl implements ICryptoProvider{
     private final AEADCipher aesGcmCipher;
 	private final HMACKey mHmacKey;
 	private final byte[] tempBuffer;
-	
-	private KMSEProvider kmSEProvider;
 
 	CryptoProviderImpl() {
 		mHMACSignature = Signature.getInstance(Signature.ALG_HMAC_SHA_256, false);
@@ -49,29 +53,70 @@ final class CryptoProviderImpl implements ICryptoProvider{
 				(short)256, false);
 
 		tempBuffer = JCSystem.makeTransientByteArray((short)32, JCSystem.CLEAR_ON_RESET);
-		kmSEProvider = KMAndroidSEProvider.getInstance();
+	}
+
+	private KMSEProvider getSEProvider() {
+		//if(true)return null;
+		AID keymasterAID = JCSystem.lookupAID(ICConstants.KEYMASTER_AID, (byte)0, (byte)ICConstants.KEYMASTER_AID.length);
+		if(keymasterAID == null) {
+			return null;
+		}
+		Shareable sharable = JCSystem.getAppletShareableInterfaceObject(keymasterAID, (byte)0);
+		KMSEProvider kmSEProvider = (KMSEProvider) sharable;
+		return kmSEProvider;
 	}
 
 	public void createECKey(byte[] privKeyBuf, short privKeyStart, short privKeyMaxLength,
 			byte[] pubModBuf, short pubModStart, short pubModMaxLength, short[] lengths) {
-		kmSEProvider.createAsymmetricKey(KMType.EC, privKeyBuf, privKeyStart, CryptoManager.EC_KEY_SIZE,
-				pubModBuf, pubModStart, (byte)65, lengths);
+		KMSEProvider seProvider = getSEProvider();
+		if(seProvider != null) {
+			short privKeyOffset = (byte)0;
+			short pubKeyOffset = ICConstants.EC_KEY_SIZE;
+			byte[] tempGlobalByteArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(privKeyMaxLength + pubModMaxLength));
+			short[] tempGlobalShortArray = (short[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_SHORT, (short)lengths.length);
+			seProvider.createAsymmetricKey(KMType.EC, tempGlobalByteArray, privKeyOffset, ICConstants.EC_KEY_SIZE,
+					tempGlobalByteArray, pubKeyOffset, (byte)65, tempGlobalShortArray);
 
-	}
-
-	public short attestKey(byte[] pubBuf, short pubStart, short pubLength, byte[] keyParams, short keyParamsStart,
-			short keyParamsLength, byte[] outCertbuff, short outCertStart) {
-		// TODO Auto-generated method stub
-		return 0;
+			Util.arrayCopyNonAtomic(tempGlobalByteArray, privKeyOffset, privKeyBuf, privKeyStart, tempGlobalShortArray[0]);
+			Util.arrayCopyNonAtomic(tempGlobalByteArray, pubKeyOffset, pubModBuf, pubModStart, tempGlobalShortArray[1]);
+			lengths[0] = tempGlobalShortArray[0];
+			lengths[1] = tempGlobalShortArray[1];
+			JCSystem.requestObjectDeletion();
+		} else {
+			ecKeyPair.genKeyPair();
+			ECPrivateKey privKey = (ECPrivateKey) ecKeyPair.getPrivate();
+			lengths[0] = privKey.getS(privKeyBuf, privKeyStart);
+			ECPublicKey pubKey = (ECPublicKey) ecKeyPair.getPublic();
+			lengths[1] = pubKey.getW(pubModBuf, pubModStart);
+		}
 	}
 
 	public short ecSignWithNoDigest(byte[] privKeyBuf, short privKeyStart, short privKeyLength,
 									byte[] data, short dataStart, short dataLength,
 									byte[] outSign, short outSignStart) {
-		ECPrivateKey key = (ECPrivateKey) ecKeyPair.getPrivate();
-		key.setS(privKeyBuf, privKeyStart, privKeyLength);
-		signerNoDigest.init(key, Signature.MODE_SIGN);
-		return signerNoDigest.signPreComputedHash(data, dataStart, dataLength, outSign, outSignStart);
+
+		/*KMSEProvider seProvider = getSEProvider();
+		if(seProvider != null) {
+			byte[] tempGlobalByteArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(privKeyLength + dataLength + (short)72));
+			short privKeyOffset = (byte)0;
+			short dataOffset = privKeyLength;
+			short outSignOffset = (short)(dataOffset + dataLength);
+			Util.arrayCopyNonAtomic(privKeyBuf, privKeyStart, tempGlobalByteArray, privKeyOffset, privKeyLength);
+			Util.arrayCopyNonAtomic(data, dataStart, tempGlobalByteArray, dataOffset, dataLength);
+			KMOperation signer = seProvider.initAsymmetricOperation(KMType.SIGN, KMType.EC,  KMType.PADDING_NONE , KMType.DIGEST_NONE,
+					tempGlobalByteArray, privKeyOffset, privKeyLength, //Private key
+					tempGlobalByteArray, (short)0, (short)0); //Public key
+
+			short signLen = signer.sign(tempGlobalByteArray, dataOffset, dataLength, tempGlobalByteArray, outSignOffset);
+			Util.arrayCopyNonAtomic(tempGlobalByteArray, outSignOffset, outSign, outSignOffset, signLen);
+			JCSystem.requestObjectDeletion();
+			return signLen;
+		} else {*/
+			ECPrivateKey key = (ECPrivateKey) ecKeyPair.getPrivate();
+			key.setS(privKeyBuf, privKeyStart, privKeyLength);
+			signerNoDigest.init(key, Signature.MODE_SIGN);
+			return signerNoDigest.signPreComputedHash(data, dataStart, dataLength, outSign, outSignStart);
+		//}
 	}
 
 	public short aesGCMEncrypt(byte[] aesKeyBuff, short aesKeyStart, short aesKeyLen,
@@ -81,9 +126,9 @@ final class CryptoProviderImpl implements ICryptoProvider{
 			byte[] authData, short authDataStart, short authDataLen,
 			byte[] authTag, short authTagStart, short authTagLen) {
 
-		KMSEProvider seProvider = kmSEProvider;
-		//if(seProvider != null) {
-		/*	byte[] tempGlobalByteArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(aesKeyLen + dataLen + dataLen + nonceLen + authDataLen + authTagLen));
+		KMSEProvider seProvider = getSEProvider();
+		/*//if(seProvider != null) {
+			byte[] tempGlobalByteArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(aesKeyLen + dataLen + dataLen + nonceLen + authDataLen + authTagLen));
 			short aesKeyOffset = (byte)0;
 			short dataOffset = (short)(aesKeyOffset + aesKeyLen);
 			short encDataOffset = (short)(dataOffset + dataLen);
@@ -111,11 +156,7 @@ final class CryptoProviderImpl implements ICryptoProvider{
 		    short ciphLen = aesGcmCipher.doFinal(data, dataStart, dataLen, encData, encDataStart);
 		    aesGcmCipher.retrieveTag(authTag, authTagStart, authTagLen);
 		    return ciphLen;
-		/*}
-		short encLen = seProvider.aesGCMEncrypt(aesKeyBuff, aesKeyStart, aesKeyLen, data, dataStart,
-				dataLen, encData, encDataStart, nonce, nonceStart, nonceLen,
-				authData, authDataStart, authDataLen, authTag, authTagStart, authTagLen);
-		return encLen;*/
+		/*}*/
 	}
 
 	public boolean aesGCMDecrypt(byte[] aesKeyBuff, short aesKeyStart, short aesKeyLen,
@@ -124,9 +165,9 @@ final class CryptoProviderImpl implements ICryptoProvider{
 			byte[] nonce, short nonceStart, short nonceLen,
 			byte[] authData, short authDataStart, short authDataLen,
 			byte[] authTag, short authTagStart, short authTagLen) {
-		KMSEProvider seProvider = kmSEProvider;
-		//if(seProvider != null) {
-		/*	byte[] tempGlobalByteArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(aesKeyLen + dataLen + dataLen + nonceLen + authDataLen + authTagLen));
+		KMSEProvider seProvider = getSEProvider();
+		/*//if(seProvider != null) {
+			byte[] tempGlobalByteArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(aesKeyLen + dataLen + dataLen + nonceLen + authDataLen + authTagLen));
 			short aesKeyOffset = (byte)0;
 			short dataOffset = (short)(aesKeyOffset + aesKeyLen);
 			short encDataOffset = (short)(dataOffset + dataLen);
@@ -153,25 +194,38 @@ final class CryptoProviderImpl implements ICryptoProvider{
 
 		    aesGcmCipher.updateAAD(authData, authDataStart, authDataLen);
 		    aesGcmCipher.doFinal(data, dataStart, dataLen, encData, encDataStart);
-		    return aesGcmCipher.verifyTag(authTag, authTagStart, authTagLen, CryptoManager.AES_GCM_TAG_SIZE);
-		/*}
-		boolean isSuccess = seProvider.aesGCMDecrypt(aesKeyBuff, aesKeyStart, aesKeyLen, data, dataStart,
-				dataLen, encData, encDataStart, nonce, nonceStart, nonceLen,
-				authData, authDataStart, authDataLen, authTag, authTagStart, authTagLen);
-
-		return isSuccess;*/
+		    return aesGcmCipher.verifyTag(authTag, authTagStart, authTagLen, ICConstants.AES_GCM_TAG_SIZE);
+		/*}*/
 	}
 
 	public short ecSignWithSHA256Digest(byte[] privKeyBuf, short privKeyStart, short privKeyLength,
 										byte[] data, short dataStart, short dataLength,
 										byte[] outSign, short outSignStart) {
-		KMOperation signer = kmSEProvider.initAsymmetricOperation(KMType.SIGN, KMType.EC,  KMType.PADDING_NONE , KMType.SHA2_256,
-				privKeyBuf, privKeyStart, privKeyLength, //Private key
-				privKeyBuf, (short)0, (short)0); //Public key
-		short signLen = signer.sign(data, dataStart, dataLength, outSign, outSignStart);
+		KMSEProvider seProvider = getSEProvider();
+		if(seProvider != null) {
+			byte[] tempGlobalByteArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(privKeyLength + dataLength + (short)72));
+			short privKeyOffset = (byte)0;
+			short dataOffset = (short)(privKeyOffset + privKeyLength);
+			short outSignOffset = (short)(dataOffset + dataLength);
+			Util.arrayCopyNonAtomic(privKeyBuf, privKeyStart, tempGlobalByteArray, privKeyOffset, privKeyLength);
+			Util.arrayCopyNonAtomic(data, dataStart, tempGlobalByteArray, dataOffset, dataLength);
 
-		kmSEProvider.releaseAllOperations();
-		return signLen;
+			KMOperation signer = getSEProvider().initAsymmetricOperation(KMType.SIGN, KMType.EC,  KMType.PADDING_NONE , KMType.SHA2_256,
+					tempGlobalByteArray, privKeyOffset, privKeyLength, //Private key
+					tempGlobalByteArray, (short)0, (short)0); //Public key
+			short signLen = signer.sign(tempGlobalByteArray, dataOffset, dataLength, tempGlobalByteArray, outSignOffset);
+
+			Util.arrayCopyNonAtomic(tempGlobalByteArray, outSignOffset, outSign, outSignStart, signLen);
+			JCSystem.requestObjectDeletion();
+			getSEProvider().releaseAllOperations();
+			return signLen;
+		} else {
+			ECPrivateKey key = (ECPrivateKey) ecKeyPair.getPrivate();
+			//Secp256r1.configureECKeyParameters(key);
+			key.setS(privKeyBuf, privKeyStart, privKeyLength);
+			signerWithSha256.init(key, Signature.MODE_SIGN);
+			return signerWithSha256.sign(data, dataStart, dataLength, outSign, outSignStart);
+		}
 	}
 
 	public boolean ecVerifyWithNoDigest(byte[] pubKeyBuf, short pubKeyStart, short pubKeyLength,

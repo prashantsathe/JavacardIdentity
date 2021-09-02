@@ -5,6 +5,7 @@ import javacard.framework.JCSystem;
 import javacard.framework.Util;
 import javacard.security.MessageDigest;
 
+
 import static com.android.se.ready.ICConstants.*;
 
 /**
@@ -48,7 +49,7 @@ final class JCICProvisioning {
         mEntryCounts = JCSystem.makeTransientShortArray(MAX_NUM_NAMESPACES, JCSystem.CLEAR_ON_DESELECT);
         mStatusWords = JCSystem.makeTransientShortArray(STATUS_WORDS, JCSystem.CLEAR_ON_DESELECT);
 
-        mAdditionalDataSha256 = JCSystem.makeTransientByteArray(CryptoManager.SHA256_DIGEST_SIZE, JCSystem.CLEAR_ON_DESELECT);
+        mAdditionalDataSha256 = JCSystem.makeTransientByteArray(ICConstants.SHA256_DIGEST_SIZE, JCSystem.CLEAR_ON_DESELECT);
 
         mDigest = mCryptoManager.mDigest;
         mSecondaryDigest = mCryptoManager.mSecondaryDigest;
@@ -65,7 +66,7 @@ final class JCICProvisioning {
 	    Util.arrayFillNonAtomic(mIntCurrentCborSize, (short)0, (short)(INT_SIZE + SHORT_SIZE), (byte)0);
 	    Util.arrayFillNonAtomic(mIntCurrentEntrySize, (short)0, INT_SIZE, (byte)0);
 	    Util.arrayFillNonAtomic(mIntCurrentEntryNumBytesReceived, (short)0, (short)(INT_SIZE + SHORT_SIZE), (byte)0);
-        Util.arrayFillNonAtomic(mAdditionalDataSha256, (short)0, CryptoManager.SHA256_DIGEST_SIZE, (byte)0);
+        Util.arrayFillNonAtomic(mAdditionalDataSha256, (short)0, ICConstants.SHA256_DIGEST_SIZE, (byte)0);
 
         mDigest.reset();
 	    mSecondaryDigest.reset();
@@ -93,46 +94,48 @@ final class JCICProvisioning {
         short receivingDataLength = apduManager.getReceivingLength();
         short le = apduManager.setOutgoing(true);
         byte[] outBuffer = apduManager.getSendBuffer();
-        KMByteBlob tempBuffer = mCryptoManager.getTempBuffer();
+		byte[] tempBuffer = JCICStoreApplet.getTempByteBlob().getBuffer();
+		short tempBufferOffset = JCICStoreApplet.getTempByteBlob().getStartOff();
+		short tempBufferLen = JCICStoreApplet.getTempByteBlob().getLength();
         short outGoingLength = (short)0;
 
         switch(receiveBuffer[ISO7816.OFFSET_INS]) {
 	        case ISO7816.INS_ICS_PROVISIONING_INIT:
                 outGoingLength = processProvisioningInit(receiveBuffer, receivingDataOffset, receivingDataLength,
-                        outBuffer, le, tempBuffer);
+                        outBuffer, le, tempBuffer, tempBufferOffset, tempBufferLen);
 	            break;
 	        case ISO7816.INS_ICS_CREATE_CREDENTIAL_KEY:
 	            //TODO need to create Remote Key Provisioning API
                 outGoingLength = processCreateCredentialKey(receiveBuffer, receivingDataOffset, receivingDataLength,
-                        outBuffer, le, tempBuffer);
+                        outBuffer, le, tempBuffer, tempBufferOffset, tempBufferLen);
 	            break;
 	        case ISO7816.INS_ICS_START_PERSONALIZATION:
                 outGoingLength = processStartPersonalization(receiveBuffer, receivingDataOffset, receivingDataLength,
-                        outBuffer, le, tempBuffer);
+                        outBuffer, le, tempBuffer, tempBufferOffset, tempBufferLen);
 	            break;
 	        case ISO7816.INS_ICS_ADD_ACCESS_CONTROL_PROFILE:
                 outGoingLength = processAddAccessControlProfile(receiveBuffer, receivingDataOffset, receivingDataLength,
-                        outBuffer, le, tempBuffer);
+                        outBuffer, le, tempBuffer, tempBufferOffset, tempBufferLen);
 	            break;
 	        case ISO7816.INS_ICS_BEGIN_ADD_ENTRY:
                 outGoingLength = processBeginAddEntry(receiveBuffer, receivingDataOffset, receivingDataLength,
-                        outBuffer, le, tempBuffer);
+                        outBuffer, le, tempBuffer, tempBufferOffset, tempBufferLen);
 	            break;
 	        case ISO7816.INS_ICS_ADD_ENTRY_VALUE:
                 outGoingLength = processAddEntryValue(receiveBuffer, receivingDataOffset, receivingDataLength,
-                        outBuffer, le, tempBuffer);
+                        outBuffer, le, tempBuffer, tempBufferOffset, tempBufferLen);
 	            break;
 	        case ISO7816.INS_ICS_FINISH_ADDING_ENTRIES:
                 outGoingLength = processFinishAddingEntries(receiveBuffer, receivingDataOffset, receivingDataLength,
-                        outBuffer, le, tempBuffer);
+                        outBuffer, le, tempBuffer, tempBufferOffset, tempBufferLen);
 	            break;
 	        case ISO7816.INS_ICS_FINISH_GET_CREDENTIAL_DATA:
                 outGoingLength = processFinishGetCredentialData(receiveBuffer, receivingDataOffset, receivingDataLength,
-                        outBuffer, le, tempBuffer);
+                        outBuffer, le, tempBuffer, tempBufferOffset, tempBufferLen);
 	            break;
             case ISO7816.INS_ICS_UPDATE_CREDENTIAL:
                 outGoingLength = processUpdateCredential(receiveBuffer, receivingDataOffset, receivingDataLength,
-                        outBuffer, le, tempBuffer);
+                        outBuffer, le, tempBuffer, tempBufferOffset, tempBufferLen);
                 break;
 	        default: 
 	            ISOException.throwIt(ISO7816.SW_INS_NOT_SUPPORTED);
@@ -141,7 +144,7 @@ final class JCICProvisioning {
 	}
 
     private short processProvisioningInit(byte[] receiveBuffer, short receivingDataOffset, short receivingDataLength,
-                                         byte[] outBuffer, short le, KMByteBlob tempBufferBlob) {
+                                         byte[] outBuffer, short le, byte[] tempBuffer, short tempBufferOffset, short tempBuffLen) {
         //If P1P2 other than 0000 and 0001 throw exception
         if(Util.getShort(receiveBuffer, ISO7816.OFFSET_P1) != 0x0) {
             ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
@@ -169,7 +172,7 @@ final class JCICProvisioning {
     }
 
     private short processUpdateCredential(byte[] receiveBuffer, short receivingDataOffset, short receivingDataLength,
-                                          byte[] outBuffer, short le, KMByteBlob tempBufferBlob) {
+                                          byte[] outBuffer, short le, byte[] tempBuffer, short tempBufferOffset, short tempBuffLen) {
 
         //If P1P2 other than 0000 throw exception
         if (Util.getShort(receiveBuffer, ISO7816.OFFSET_P1) != 0x0) {
@@ -179,8 +182,7 @@ final class JCICProvisioning {
         mCBORDecoder.init(receiveBuffer, receivingDataOffset, receivingDataLength);
         mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
         boolean isTestCredential = mCBORDecoder.readBoolean();
-        byte[] tempBuffer = tempBufferBlob.getBuffer();
-        short docTypeOffset = tempBufferBlob.getStartOff();
+        short docTypeOffset = tempBufferOffset;
         short docTypeLen = mCBORDecoder.readByteString(tempBuffer, docTypeOffset);
         short encryptedCredentialKeyOffset = (short)(docTypeOffset + docTypeLen);
         short encryptedCredentialKeysSize = mCBORDecoder.readByteString(tempBuffer, encryptedCredentialKeyOffset);
@@ -201,11 +203,11 @@ final class JCICProvisioning {
         short outDataOffset = (short)(encryptedCredentialKeyOffset + encryptedCredentialKeysSize);
         //encrypted data is in format {nonce|encryptedKeys|tag}
         if(!mCryptoManager.decryptCredentialData(isTestCredential,
-                tempBuffer, (short)(encryptedCredentialKeyOffset + CryptoManager.AES_GCM_IV_SIZE), (short)(encryptedCredentialKeysSize - (CryptoManager.AES_GCM_IV_SIZE + CryptoManager.AES_GCM_TAG_SIZE)),
+                tempBuffer, (short)(encryptedCredentialKeyOffset + ICConstants.AES_GCM_IV_SIZE), (short)(encryptedCredentialKeysSize - (ICConstants.AES_GCM_IV_SIZE + ICConstants.AES_GCM_TAG_SIZE)),
                 tempBuffer, outDataOffset,
-                tempBuffer, encryptedCredentialKeyOffset, CryptoManager.AES_GCM_IV_SIZE,
+                tempBuffer, encryptedCredentialKeyOffset, ICConstants.AES_GCM_IV_SIZE,
                 tempBuffer, docTypeOffset, docTypeLen,
-                tempBuffer, (short)(encryptedCredentialKeyOffset + encryptedCredentialKeysSize - CryptoManager.AES_GCM_TAG_SIZE), CryptoManager.AES_GCM_TAG_SIZE)) {
+                tempBuffer, (short)(encryptedCredentialKeyOffset + encryptedCredentialKeysSize - ICConstants.AES_GCM_TAG_SIZE), ICConstants.AES_GCM_TAG_SIZE)) {
             ISOException.throwIt(ISO7816.SW_DATA_INVALID);
         }
 
@@ -259,35 +261,57 @@ final class JCICProvisioning {
     }
 
 	private short processCreateCredentialKey(byte[] receiveBuffer, short receivingDataOffset, short receivingDataLength,
-                                            byte[] outBuffer, short le, KMByteBlob tempBufferBlob) {
+                                            byte[] outBuffer, short le, byte[] tempBuffer, short tempBufferOffset, short tempBuffLen) {
         mCryptoManager.assertStatusFlagNotSet(CryptoManager.FLAG_PROVISIONING_KEYS_INITIALIZED);
 
         //If P1P2 other than 0000 and 0001 throw exception
         if(Util.getShort(receiveBuffer, ISO7816.OFFSET_P1) != 0x0) {
             ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
         }
-
-        byte[] tempBuffer = tempBufferBlob.getBuffer();
-        short tempBufferOffset = tempBufferBlob.getStartOff();
         if(mCryptoManager.getStatusFlag(CryptoManager.FLAG_UPDATE_CREDENTIAL)) {
             ISOException.throwIt(ISO7816.SW_DATA_INVALID);
         }
 
-        mCryptoManager.createEcKeyPairAndAttestation(mCryptoManager.getStatusFlag(CryptoManager.FLAG_TEST_CREDENTIAL));
-        short pubKeyLen = mCryptoManager.getCredentialEcPubKey(tempBuffer, tempBufferOffset);
+        mCBORDecoder.init(receiveBuffer, receivingDataOffset, receivingDataLength);
+        mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
+        short challengeOffset = tempBufferOffset;
+        Util.arrayFillNonAtomic(tempBuffer, challengeOffset, tempBuffLen, (byte)0);
+        short challengeLen = mCBORDecoder.readByteString(tempBuffer, challengeOffset);
+        short appIdOffset = (short)(challengeOffset + challengeLen);
+        short appIdLen = mCBORDecoder.readByteString(tempBuffer, appIdOffset);
+        short nowMsOffset = (short)(appIdOffset + appIdLen);
+        short intSize = mCBORDecoder.getIntegerSize();
+        ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(nowMsOffset + LONG_SIZE - intSize));
+        short expireTimeOffset = (short)(nowMsOffset + LONG_SIZE);
+        intSize = mCBORDecoder.getIntegerSize();
+        ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(expireTimeOffset + LONG_SIZE - intSize));
+        short freeOffset = (short)(expireTimeOffset + LONG_SIZE);
 
-        mCryptoManager.setStatusFlag(CryptoManager.FLAG_PROVISIONING_KEYS_INITIALIZED, true);
-
+        short result = (short)0;
+        short certLen = (short)0;
+		try {
+			certLen = mCryptoManager.createEcKeyPairAndAttestation(mCryptoManager.getStatusFlag(CryptoManager.FLAG_TEST_CREDENTIAL),
+        		tempBuffer, challengeOffset, challengeLen,
+        		appIdOffset, appIdLen,
+        		nowMsOffset, LONG_SIZE,
+        		expireTimeOffset, LONG_SIZE,
+        		tempBuffer, freeOffset);
+		} catch (ISOException e) {
+			result = e.getReason();
+		}
         mCBOREncoder.init(outBuffer, (short) 0, le);
-        mCBOREncoder.startArray((short)2);
-        mCBOREncoder.encodeUInt8((byte)0); //Success
-        mCBOREncoder.startArray((short)1);
-        mCBOREncoder.encodeByteString(tempBuffer, tempBufferOffset, pubKeyLen);
+        mCBOREncoder.startArray(result == (short)0 ? (short)2 : 1);
+        mCBOREncoder.encodeUInt8((byte)result); //Success
+        if(result == (short)0) {
+	        mCBOREncoder.startArray((short)1);
+	        mCBOREncoder.encodeByteString(tempBuffer, freeOffset, certLen);
+        }
+		JCSystem.requestObjectDeletion();
         return mCBOREncoder.getCurrentOffset();
 	}
 	
 	private short processStartPersonalization(byte[] receiveBuffer, short receivingDataOffset, short receivingDataLength,
-                                             byte[] outBuffer, short le, KMByteBlob tempBufferBlob) {
+                                             byte[] outBuffer, short le, byte[] tempBuffer, short tempBufferOffset, short tempBuffLen) {
         mCryptoManager.assertCredentialInitialized();
         mCryptoManager.assertStatusFlagNotSet(CryptoManager.FLAG_PROVISIONING_CREDENTIAL_STATE);
 
@@ -297,8 +321,7 @@ final class JCICProvisioning {
 
         mCBORDecoder.init(receiveBuffer, receivingDataOffset, receivingDataLength);
         mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
-        byte[] tempBuffer = tempBufferBlob.getBuffer();
-        short docTypeOffset = tempBufferBlob.getStartOff();
+        short docTypeOffset = tempBufferOffset;
         short docTypeLength = mCBORDecoder.readByteString(tempBuffer, docTypeOffset);
         short accessControlProfileCount = (short)(mCBORDecoder.readInt8() & 0x00FF);
         if(accessControlProfileCount >= MAX_NUM_ACCESS_CONTROL_PROFILE_IDS) {
@@ -397,7 +420,7 @@ final class JCICProvisioning {
     }
 
 	private short processAddAccessControlProfile(byte[] receiveBuffer, short receivingDataOffset, short receivingDataLength,
-                                                byte[] outBuffer, short le, KMByteBlob tempBufferBlob) {
+                                                byte[] outBuffer, short le, byte[] tempBuffer, short tempBufferOffset, short tempBuffLen) {
         mCryptoManager.assertInPersonalizationState();
         mCryptoManager.assertStatusFlagNotSet(CryptoManager.FLAG_PERSONALIZING_ENTRIES);
 
@@ -408,14 +431,12 @@ final class JCICProvisioning {
         short outLength = ICUtil.constructCBORAccessControl(mCBORDecoder, mCBOREncoder, receiveBuffer, receivingDataOffset, receivingDataLength,
         										outBuffer, (short)0, le, true);
 
-        byte[] tempBuffer = tempBufferBlob.getBuffer();
-        short tempBufferOffset = tempBufferBlob.getStartOff();
         // Calculate and return MAC
         //Encrypt constructed CBOR using AES-GCM and get generated MAC and return it.
         mCryptoManager.aesGCMEncrypt(outBuffer, (short)0, (short)0,
         		tempBuffer, tempBufferOffset,
         		outBuffer, (short)0, outLength,
-        		tempBuffer, (short)(tempBufferOffset + CryptoManager.TEMP_BUFFER_IV_POS));
+        		tempBuffer, (short)(tempBufferOffset + ICConstants.TEMP_BUFFER_IV_POS));
 
         // The ACP CBOR in the provisioning receipt doesn't include secureUserId so build
         // it again.
@@ -432,21 +453,18 @@ final class JCICProvisioning {
         mCBOREncoder.startArray((short)2);
         mCBOREncoder.encodeUInt8((byte)0); //Success
         mCBOREncoder.startArray((short)1);
-        mCBOREncoder.encodeByteString(tempBuffer, (short)(tempBufferOffset + CryptoManager.TEMP_BUFFER_IV_POS), (short)(CryptoManager.AES_GCM_IV_SIZE + CryptoManager.AES_GCM_TAG_SIZE));
+        mCBOREncoder.encodeByteString(tempBuffer, (short)(tempBufferOffset + ICConstants.TEMP_BUFFER_IV_POS), (short)(ICConstants.AES_GCM_IV_SIZE + ICConstants.AES_GCM_TAG_SIZE));
         return mCBOREncoder.getCurrentOffset();
 	}
 
 	private short processBeginAddEntry(byte[] receiveBuffer, short receivingDataOffset, short receivingDataLength,
-                                      byte[] outBuffer, short le, KMByteBlob tempBufferBlob) {
+                                      byte[] outBuffer, short le, byte[] tempBuffer, short tempBufferOffset, short tempBuffLen) {
         mCryptoManager.assertStatusFlagSet(CryptoManager.FLAG_PERSONALIZING_ENTRIES);
         mCryptoManager.assertStatusFlagNotSet(CryptoManager.FLAG_PERSONALIZING_FINISH_ENTRIES);
 
         if(Util.getShort(receiveBuffer, ISO7816.OFFSET_P1) != (short)0) {
             ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
         }
-        short tempBufferOffset = tempBufferBlob.getStartOff();
-        byte[] tempBuffer = tempBufferBlob.getBuffer();
-
         ICUtil.constAndCalcCBOREntryAdditionalData(mCBORDecoder, mCBOREncoder, mAdditionalDataDigester, receiveBuffer, receivingDataOffset, receivingDataLength,
         		outBuffer, (short)0, le, mAdditionalDataSha256, (short) 0, tempBuffer, tempBufferOffset);
 
@@ -517,22 +535,20 @@ final class JCICProvisioning {
 	}
 
 	private short processAddEntryValue(byte[] receiveBuffer, short receivingDataOffset, short receivingDataLength,
-                                      byte[] outBuffer, short le, KMByteBlob tempBufferBlob) {
+                                      byte[] outBuffer, short le, byte[] tempBuffer, short tempBufferOffset, short tempBuffLen) {
         mCryptoManager.assertInPersonalizationState();
         mCryptoManager.assertStatusFlagNotSet(CryptoManager.FLAG_PERSONALIZING_FINISH_ENTRIES_VALUES);
 
         if(Util.getShort(receiveBuffer, ISO7816.OFFSET_P1) != (short)0) {
             ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
         }
-        byte[] tempBuffer = tempBufferBlob.getBuffer();
-        short tempBufferOffset = tempBufferBlob.getStartOff();
         mCBORDecoder.init(receiveBuffer, receivingDataOffset, receivingDataLength);
         mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
         short additionalDataLen = ICUtil.constAndCalcCBOREntryAdditionalData(mCBORDecoder, mCBOREncoder, mAdditionalDataDigester, receiveBuffer, mCBORDecoder.getCurrentOffset(), receivingDataLength,
-        		outBuffer, (short)0, le, tempBuffer, tempBufferOffset, tempBuffer, (short) (tempBufferOffset + CryptoManager.SHA256_DIGEST_SIZE));
+        		outBuffer, (short)0, le, tempBuffer, tempBufferOffset, tempBuffer, (short) (tempBufferOffset + ICConstants.SHA256_DIGEST_SIZE));
 
         //Compare calculated hash of additional data with preserved hash from addEntry
-        if(Util.arrayCompare(tempBuffer, tempBufferOffset, mAdditionalDataSha256, (short) 0, CryptoManager.SHA256_DIGEST_SIZE) != (byte)0) {
+        if(Util.arrayCompare(tempBuffer, tempBufferOffset, mAdditionalDataSha256, (short) 0, ICConstants.SHA256_DIGEST_SIZE) != (byte)0) {
         	ISOException.throwIt(ISO7816.SW_DATA_INVALID);
         }
         
@@ -546,7 +562,7 @@ final class JCICProvisioning {
         short contentLen = mCBORDecoder.readByteString(tempBuffer, contentOffset);
         updatePrimaryAndSecondaryDigest(tempBuffer, contentOffset, contentLen);
         
-        if((short)(contentLen * 2) > CryptoManager.TEMP_BUFFER_SIZE) {
+        if((short)(contentLen * 2) > ICConstants.TEMP_BUFFER_SIZE) {
         	ISOException.throwIt(ISO7816.SW_INSUFFICIENT_MEMORY);
         }
         //Encrypt content and additional data as aad
@@ -555,20 +571,20 @@ final class JCICProvisioning {
         		tempBuffer, contentOffset, contentLen, //in data
         		tempBuffer, outEncryptedDataOffset, //Out encrypted data
         		outBuffer, (short)0, additionalDataLen, //Auth data
-        		tempBuffer, (short)(tempBufferOffset + CryptoManager.TEMP_BUFFER_IV_POS)); //nonce and tag
+        		tempBuffer, (short)(tempBufferOffset + ICConstants.TEMP_BUFFER_IV_POS)); //nonce and tag
 
         mCBOREncoder.reset();
         mCBOREncoder.init(outBuffer, (short)0, le);
         mCBOREncoder.startArray((short)2);
         mCBOREncoder.encodeUInt8((byte)0); //Success
         mCBOREncoder.startArray((short)1);
-        mCBOREncoder.startByteString((short) (CryptoManager.AES_GCM_IV_SIZE + contentLen + CryptoManager.AES_GCM_TAG_SIZE));
+        mCBOREncoder.startByteString((short) (ICConstants.AES_GCM_IV_SIZE + contentLen + ICConstants.AES_GCM_TAG_SIZE));
         //Output will be nonce|encryptedData|tag
-        Util.arrayCopyNonAtomic(tempBuffer, (short)(tempBufferOffset + CryptoManager.TEMP_BUFFER_IV_POS), outBuffer, mCBOREncoder.getCurrentOffset(), CryptoManager.AES_GCM_IV_SIZE);
-        Util.arrayCopyNonAtomic(tempBuffer, outEncryptedDataOffset, outBuffer, (short)(mCBOREncoder.getCurrentOffset() + CryptoManager.AES_GCM_IV_SIZE), contentLen);
-        Util.arrayCopyNonAtomic(tempBuffer, (short) (tempBufferOffset + CryptoManager.TEMP_BUFFER_GCM_TAG_POS), outBuffer, (short) (mCBOREncoder.getCurrentOffset() + CryptoManager.AES_GCM_IV_SIZE + contentLen), CryptoManager.AES_GCM_TAG_SIZE);
+        Util.arrayCopyNonAtomic(tempBuffer, (short)(tempBufferOffset + ICConstants.TEMP_BUFFER_IV_POS), outBuffer, mCBOREncoder.getCurrentOffset(), ICConstants.AES_GCM_IV_SIZE);
+        Util.arrayCopyNonAtomic(tempBuffer, outEncryptedDataOffset, outBuffer, (short)(mCBOREncoder.getCurrentOffset() + ICConstants.AES_GCM_IV_SIZE), contentLen);
+        Util.arrayCopyNonAtomic(tempBuffer, (short) (tempBufferOffset + ICConstants.TEMP_BUFFER_GCM_TAG_POS), outBuffer, (short) (mCBOREncoder.getCurrentOffset() + ICConstants.AES_GCM_IV_SIZE + contentLen), ICConstants.AES_GCM_TAG_SIZE);
         // nonce, encrypted content and tag are already copied to outBuffer
-        short returnLen = (short) (mCBOREncoder.getCurrentOffset() + CryptoManager.AES_GCM_IV_SIZE + contentLen + CryptoManager.AES_GCM_TAG_SIZE);
+        short returnLen = (short) (mCBOREncoder.getCurrentOffset() + ICConstants.AES_GCM_IV_SIZE + contentLen + ICConstants.AES_GCM_TAG_SIZE);
 
         // If done with this entry, close the map
         Util.setShort(mIntCurrentEntryNumBytesReceived, (short) INT_SIZE, contentLen);
@@ -576,7 +592,7 @@ final class JCICProvisioning {
         if(Util.arrayCompare(mIntCurrentEntryNumBytesReceived, (short) 0, mIntCurrentEntrySize, (short) 0, INT_SIZE) == 0) {
             //We need to reset decoder and encoder
             mCBORDecoder.init(receiveBuffer, receivingDataOffset, receivingDataLength);
-        	mCBOREncoder.init(tempBuffer, tempBufferOffset, CryptoManager.TEMP_BUFFER_SIZE);
+        	mCBOREncoder.init(tempBuffer, tempBufferOffset, ICConstants.TEMP_BUFFER_SIZE);
         	
         	mCBOREncoder.encodeTextString(STR_ACCESS_CONTROL_PROFILES, (short)0, (short)STR_ACCESS_CONTROL_PROFILES.length);
             mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
@@ -606,16 +622,14 @@ final class JCICProvisioning {
 	}
 
 	private short processFinishAddingEntries(byte[] receiveBuffer, short receivingDataOffset, short receivingDataLength,
-                                            byte[] outBuffer, short le, KMByteBlob tempBufferBlob) {
+                                            byte[] outBuffer, short le, byte[] tempBuffer, short tempBufferOffset, short tempBuffLen) {
         mCryptoManager.assertStatusFlagSet(CryptoManager.FLAG_PERSONALIZING_FINISH_ENTRIES_VALUES);
         mCryptoManager.assertStatusFlagNotSet(CryptoManager.FLAG_PERSONALIZING_FINISH_ADDING_ENTRIES);
 
         if(Util.getShort(receiveBuffer, ISO7816.OFFSET_P1) != (short)0) {
             ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
         }
-        byte[] tempBuffer = tempBufferBlob.getBuffer();
-        short tempBufferOffset = tempBufferBlob.getStartOff();
-        mCBOREncoder.init(tempBuffer, tempBufferOffset, CryptoManager.TEMP_BUFFER_SIZE);
+        mCBOREncoder.init(tempBuffer, tempBufferOffset, ICConstants.TEMP_BUFFER_SIZE);
         mCBOREncoder.encodeBoolean(mCryptoManager.getStatusFlag(CryptoManager.FLAG_TEST_CREDENTIAL));
         updatePrimaryAndSecondaryDigest(tempBuffer, tempBufferOffset, (short)(mCBOREncoder.getCurrentOffset() - tempBufferOffset));
         short digestOffset = mCBOREncoder.getCurrentOffset();
@@ -642,26 +656,24 @@ final class JCICProvisioning {
 	}
 
 	private short processFinishGetCredentialData(byte[] receiveBuffer, short receivingDataOffset, short receivingDataLength,
-                                                byte[] outBuffer, short le, KMByteBlob tempBufferBlob) {
+                                                byte[] outBuffer, short le, byte[] tempBuffer, short tempBufferOffset, short tempBuffLen) {
         mCryptoManager.assertStatusFlagSet(CryptoManager.FLAG_PERSONALIZING_FINISH_ADDING_ENTRIES);
         mCryptoManager.assertStatusFlagNotSet(CryptoManager.FLAG_PERSONALIZING_FINISH_GET_CREDENTIAL);
 
         if(Util.getShort(receiveBuffer, ISO7816.OFFSET_P1) != (short)0) {
             ISOException.throwIt(ISO7816.SW_INCORRECT_P1P2);
         }
-        byte[] tempBuffer = tempBufferBlob.getBuffer();
-        short tempBufferOffset = tempBufferBlob.getStartOff();
 
         mCBORDecoder.init(receiveBuffer, receivingDataOffset, receivingDataLength);
         mCBOREncoder.init(outBuffer, (short) 0, le);
         
 		mCBOREncoder.startArray((short)3);
 		mCryptoManager.getCredentialStorageKey(tempBuffer, tempBufferOffset);
-		mCBOREncoder.encodeByteString(tempBuffer, tempBufferOffset, CryptoManager.AES_GCM_KEY_SIZE);
+		mCBOREncoder.encodeByteString(tempBuffer, tempBufferOffset, ICConstants.AES_GCM_KEY_SIZE);
 		mCryptoManager.getCredentialEcKey(tempBuffer, tempBufferOffset);
-		mCBOREncoder.encodeByteString(tempBuffer, tempBufferOffset, CryptoManager.EC_KEY_SIZE);
+		mCBOREncoder.encodeByteString(tempBuffer, tempBufferOffset, ICConstants.EC_KEY_SIZE);
 		mSecondaryDigest.doFinal(tempBuffer, (short)0, (short) 0, tempBuffer, tempBufferOffset); //Data is of 0 size and collect digest in tempBuffer
-		mCBOREncoder.encodeByteString(tempBuffer, tempBufferOffset, CryptoManager.SHA256_DIGEST_SIZE);
+		mCBOREncoder.encodeByteString(tempBuffer, tempBufferOffset, ICConstants.SHA256_DIGEST_SIZE);
 		
 		mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
 		short docTypeLen = mCBORDecoder.readByteString(tempBuffer, tempBufferOffset);
@@ -670,7 +682,7 @@ final class JCICProvisioning {
 				outBuffer, (short) 0, mCBOREncoder.getCurrentOffset(), //in data
 				tempBuffer, tempBufferOffset, //out encrypted data
 				tempBuffer, tempBufferOffset, docTypeLen, //Auth data
-				tempBuffer, (short)(tempBufferOffset + CryptoManager.TEMP_BUFFER_IV_POS)); //Nonce and tag
+				tempBuffer, (short)(tempBufferOffset + ICConstants.TEMP_BUFFER_IV_POS)); //Nonce and tag
 
         mCryptoManager.setStatusFlag(CryptoManager.FLAG_PERSONALIZING_FINISH_GET_CREDENTIAL, true);
 
@@ -679,11 +691,11 @@ final class JCICProvisioning {
         mCBOREncoder.startArray((short)2);
         mCBOREncoder.encodeUInt8((byte)0); //Success
         mCBOREncoder.startArray((short)1);
-        mCBOREncoder.startByteString((short)(CryptoManager.AES_GCM_IV_SIZE + dataSize + CryptoManager.AES_GCM_TAG_SIZE));
+        mCBOREncoder.startByteString((short)(ICConstants.AES_GCM_IV_SIZE + dataSize + ICConstants.AES_GCM_TAG_SIZE));
         //Output will be nonce|encryptedData|tag
-        Util.arrayCopyNonAtomic(tempBuffer, (short)(tempBufferOffset + CryptoManager.TEMP_BUFFER_IV_POS), outBuffer, mCBOREncoder.getCurrentOffset(), CryptoManager.AES_GCM_IV_SIZE);
-        Util.arrayCopyNonAtomic(tempBuffer, tempBufferOffset, outBuffer, (short) (mCBOREncoder.getCurrentOffset() + CryptoManager.AES_GCM_IV_SIZE), dataSize);
-        Util.arrayCopyNonAtomic(tempBuffer, (short) (tempBufferOffset + CryptoManager.TEMP_BUFFER_GCM_TAG_POS), outBuffer, (short) (mCBOREncoder.getCurrentOffset() + CryptoManager.AES_GCM_IV_SIZE + dataSize), CryptoManager.AES_GCM_TAG_SIZE);
-        return (short)(mCBOREncoder.getCurrentOffset() + CryptoManager.AES_GCM_IV_SIZE + dataSize + CryptoManager.AES_GCM_TAG_SIZE);
+        Util.arrayCopyNonAtomic(tempBuffer, (short)(tempBufferOffset + ICConstants.TEMP_BUFFER_IV_POS), outBuffer, mCBOREncoder.getCurrentOffset(), ICConstants.AES_GCM_IV_SIZE);
+        Util.arrayCopyNonAtomic(tempBuffer, tempBufferOffset, outBuffer, (short) (mCBOREncoder.getCurrentOffset() + ICConstants.AES_GCM_IV_SIZE), dataSize);
+        Util.arrayCopyNonAtomic(tempBuffer, (short) (tempBufferOffset + ICConstants.TEMP_BUFFER_GCM_TAG_POS), outBuffer, (short) (mCBOREncoder.getCurrentOffset() + ICConstants.AES_GCM_IV_SIZE + dataSize), ICConstants.AES_GCM_TAG_SIZE);
+        return (short)(mCBOREncoder.getCurrentOffset() + ICConstants.AES_GCM_IV_SIZE + dataSize + ICConstants.AES_GCM_TAG_SIZE);
 	}
 }

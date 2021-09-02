@@ -1,7 +1,20 @@
 package com.android.se.ready;
 
+import static com.android.se.ready.ICConstants.LONG_SIZE;
+import static com.android.se.ready.ICConstants.SHORT_SIZE;
+import static com.android.se.ready.ICConstants.X509_CERT_BASE;
+import static com.android.se.ready.ICConstants.X509_CERT_POS_TOTAL_LEN;
+import static com.android.se.ready.ICConstants.X509_CERT_POS_VALID_NOT_AFTER;
+import static com.android.se.ready.ICConstants.X509_CERT_POS_VALID_NOT_BEFORE;
+import static com.android.se.ready.ICConstants.X509_DER_POB;
+import static com.android.se.ready.ICConstants.X509_DER_SIGNATURE;
+
+import com.android.javacard.keymaster.KMAppletBridge;
+
+import javacard.framework.AID;
 import javacard.framework.ISOException;
 import javacard.framework.JCSystem;
+import javacard.framework.Shareable;
 import javacard.framework.Util;
 import javacard.security.CryptoException;
 import javacard.security.KeyBuilder;
@@ -27,16 +40,6 @@ public class CryptoManager {
     public static final byte FLAG_HMAC_INITIALIZED = 0x0E;
     private static final byte STATUS_FLAGS_SIZE = 2;
 
-    public static final byte AES_GCM_KEY_SIZE = 16; 
-    public static final byte AES_GCM_TAG_SIZE = 16; 
-    public static final byte AES_GCM_IV_SIZE = 12;
-    public static final byte EC_KEY_SIZE = 32;
-    public static final byte SHA256_DIGEST_SIZE = 32;
-
-    public static final short TEMP_BUFFER_SIZE = 2048;
-    public static final short TEMP_BUFFER_IV_POS = TEMP_BUFFER_SIZE;
-    public static final short TEMP_BUFFER_GCM_TAG_POS = TEMP_BUFFER_IV_POS + AES_GCM_IV_SIZE;
-    
     // Actual Crypto implementation
     private final ICryptoProvider mCryptoProvider;
     
@@ -61,32 +64,26 @@ public class CryptoManager {
     // Random data generator 
     private final RandomData mRandomData;
 
-    // Temporary buffer for all cryptography operations
-    private final KMByteBlob mTempBuffer;
-    
     // Temporary buffer in memory for status flags
     private final byte[] mStatusFlags;
 
-    public CryptoManager(ICryptoProvider cryptoProvider /*AccessControlManager accessControlManager,*/) {
+    public CryptoManager(ICryptoProvider cryptoProvider) {
     	mCryptoProvider = cryptoProvider;
     	
         //mTempBuffer = JCSystem.makeTransientByteArray((short) (TEMP_BUFFER_SIZE + AES_GCM_IV_SIZE + AES_GCM_TAG_SIZE),
         //        JCSystem.CLEAR_ON_DESELECT);
     	//mTempBuffer = KMRepository.instance().getHeap();
-    	mTempBuffer = KMByteBlob.cast(KMByteBlob.instance((short) (TEMP_BUFFER_SIZE + AES_GCM_IV_SIZE + AES_GCM_TAG_SIZE)));
 
         mStatusFlags = JCSystem.makeTransientByteArray((short)(STATUS_FLAGS_SIZE), JCSystem.CLEAR_ON_DESELECT);
 
         // Secure Random number generation for HBK
         mRandomData = RandomData.getInstance(RandomData.ALG_TRNG);
-        mRandomData.nextBytes(mTempBuffer.getBuffer(), mTempBuffer.getStartOff(), AES_GCM_KEY_SIZE);
-        mHBK = new byte[AES_GCM_KEY_SIZE];
-        Util.arrayCopyNonAtomic(mTempBuffer.getBuffer(), mTempBuffer.getStartOff(), mHBK, (short) 0, AES_GCM_KEY_SIZE);
-        Util.arrayFillNonAtomic(mTempBuffer.getBuffer(), mTempBuffer.getStartOff(), AES_GCM_KEY_SIZE, (byte)0);
+        mHBK = new byte[ICConstants.AES_GCM_KEY_SIZE];
+        mRandomData.nextBytes(mHBK, (short)0, ICConstants.AES_GCM_KEY_SIZE);
 
         // Create the storage key byte array 
-        mCredentialStorageKey = JCSystem.makeTransientByteArray(AES_GCM_KEY_SIZE, JCSystem.CLEAR_ON_RESET);
-        mCredentialKeyPair = JCSystem.makeTransientByteArray((short)(EC_KEY_SIZE * 3 + 1), JCSystem.CLEAR_ON_RESET);
+        mCredentialStorageKey = JCSystem.makeTransientByteArray(ICConstants.AES_GCM_KEY_SIZE, JCSystem.CLEAR_ON_RESET);
+        mCredentialKeyPair = JCSystem.makeTransientByteArray((short)(ICConstants.EC_KEY_SIZE * 3 + 1), JCSystem.CLEAR_ON_RESET);
         mCredentialKeyPairLengths = JCSystem.makeTransientShortArray((short)2, JCSystem.CLEAR_ON_RESET);
 
         try {
@@ -115,44 +112,70 @@ public class CryptoManager {
      * in bit.
      */
     public static short getAESKeySize() {
-        return (short) (AES_GCM_KEY_SIZE * 8);
+        return (short) (ICConstants.AES_GCM_KEY_SIZE * 8);
     }
     
     void createCredentialStorageKey(boolean testCredential) {
         // Check if it is a test credential
         if(testCredential) { // Test credential
-        	Util.arrayFillNonAtomic(mCredentialStorageKey, (short) 0, CryptoManager.AES_GCM_KEY_SIZE, (byte)0x00);
+        	Util.arrayFillNonAtomic(mCredentialStorageKey, (short) 0, ICConstants.AES_GCM_KEY_SIZE, (byte)0x00);
         } else {
 	        // Generate the AES-128 storage key 
-	        generateRandomData(mCredentialStorageKey, (short) 0, CryptoManager.AES_GCM_KEY_SIZE);
+	        generateRandomData(mCredentialStorageKey, (short) 0, ICConstants.AES_GCM_KEY_SIZE);
         }
     }
     
     short getCredentialStorageKey(byte[] storageKey, short skStart) {
         if(storageKey != null) {
-            Util.arrayCopyNonAtomic(mCredentialStorageKey, (short) 0, storageKey, skStart, AES_GCM_KEY_SIZE);
+            Util.arrayCopyNonAtomic(mCredentialStorageKey, (short) 0, storageKey, skStart, ICConstants.AES_GCM_KEY_SIZE);
         }
-        return AES_GCM_KEY_SIZE;
+        return ICConstants.AES_GCM_KEY_SIZE;
     }
 
     short setCredentialStorageKey(byte[] storageKey, short skStart) {
         if(storageKey != null) {
-            Util.arrayCopyNonAtomic(storageKey, skStart, mCredentialStorageKey, (short) 0, AES_GCM_KEY_SIZE);
+            Util.arrayCopyNonAtomic(storageKey, skStart, mCredentialStorageKey, (short) 0, ICConstants.AES_GCM_KEY_SIZE);
         }
-        return AES_GCM_KEY_SIZE;
+        return ICConstants.AES_GCM_KEY_SIZE;
     }
 
     void createEcKeyPair(byte[] keyPairBlob, short keyBlobStart, short[] keyPairLengths) {
-        mCryptoProvider.createECKey(keyPairBlob, keyBlobStart, EC_KEY_SIZE, keyPairBlob, (short)(keyBlobStart + EC_KEY_SIZE), (short) (EC_KEY_SIZE * 2 + 1), keyPairLengths);
+        mCryptoProvider.createECKey(keyPairBlob, keyBlobStart, ICConstants.EC_KEY_SIZE, keyPairBlob, (short)(keyBlobStart + ICConstants.EC_KEY_SIZE), (short) (ICConstants.EC_KEY_SIZE * 2 + 1), keyPairLengths);
     }
 
-    void createEcKeyPairAndAttestation(boolean isTestCredential) {
+    short createEcKeyPairAndAttestation(boolean isTestCredential,
+    		byte[] argsBuff,
+    		short challengeOffset, short challengeLen,
+    		short appIdOffset, short appIdLen,
+    		short nowMsOffset, short nowMsLen,
+    		short expireTimeOffset, short expireTimeLen,
+    		byte[] scratchPad, short scratchPadOffset) {
         createEcKeyPair(mCredentialKeyPair, (short)0, mCredentialKeyPairLengths);
 
-        // Only include TAG_IDENTITY_CREDENTIAL_KEY if it's not a test credential
-        if (!isTestCredential) {
-        	//TODO 
-        }
+        short pubKeyOffset = scratchPadOffset;
+        short pubKeyLen = getCredentialEcPubKey(scratchPad, pubKeyOffset);
+        short certLen = (short)0;
+		AID keymasterAID = JCSystem.lookupAID(ICConstants.KEYMASTER_AID, (byte)0, (byte)ICConstants.KEYMASTER_AID.length);
+		if(keymasterAID == null) {
+			ISOException.throwIt((short)1);;
+		}
+		
+		byte[] globalArgsArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, ICConstants.TEMP_BUFFER_SIZE);
+		Util.arrayCopyNonAtomic(argsBuff, challengeOffset, globalArgsArray, challengeOffset, challengeLen);
+		Util.arrayCopyNonAtomic(argsBuff, appIdOffset, globalArgsArray, appIdOffset, appIdLen);
+		Util.arrayCopyNonAtomic(argsBuff, nowMsOffset, globalArgsArray, nowMsOffset, nowMsLen);
+		Util.arrayCopyNonAtomic(argsBuff, expireTimeOffset, globalArgsArray, expireTimeOffset, expireTimeLen);
+		Util.arrayCopyNonAtomic(scratchPad, pubKeyOffset, globalArgsArray, (short)(expireTimeOffset + expireTimeLen), pubKeyLen);
+		Shareable sharable = JCSystem.getAppletShareableInterfaceObject(keymasterAID, (byte)1);
+        certLen = ((KMAppletBridge)sharable).createAttestationForEcPublicKey(isTestCredential,
+        			globalArgsArray, (short)(expireTimeOffset + expireTimeLen), pubKeyLen,
+        			appIdOffset, appIdLen,
+        			challengeOffset, challengeLen,
+        			nowMsOffset, (short)ICConstants.LONG_SIZE,
+        			expireTimeOffset, (short)ICConstants.LONG_SIZE,
+        			globalArgsArray, (short)0);
+        Util.arrayCopyNonAtomic(globalArgsArray, (short)0, scratchPad, scratchPadOffset, certLen);
+		return certLen;
     }
     
     short getCredentialEcKey(byte[] credentialEcKey, short start) {
@@ -164,10 +187,10 @@ public class CryptoManager {
 
     short setCredentialEcKey(byte[] credentialEcKey, short start) {
         if(credentialEcKey != null) {
-            Util.arrayCopyNonAtomic(credentialEcKey, start, mCredentialKeyPair, (short) 0, EC_KEY_SIZE);
-            mCredentialKeyPairLengths[0] = EC_KEY_SIZE;
+            Util.arrayCopyNonAtomic(credentialEcKey, start, mCredentialKeyPair, (short) 0, ICConstants.EC_KEY_SIZE);
+            mCredentialKeyPairLengths[0] = ICConstants.EC_KEY_SIZE;
         }
-        return EC_KEY_SIZE;
+        return ICConstants.EC_KEY_SIZE;
     }
 
     short getCredentialEcPubKey(byte[] credentialEcPubKey, short start) {
@@ -179,7 +202,7 @@ public class CryptoManager {
 
     short ecSignWithNoDigest(byte[] sha256Hash, short hashOffset, byte[] signBuff, short signBuffOffset) {
     	return mCryptoProvider.ecSignWithNoDigest(mCredentialKeyPair, (short)0, mCredentialKeyPairLengths[0],//Private key
-                sha256Hash, hashOffset, SHA256_DIGEST_SIZE, signBuff, signBuffOffset);
+                sha256Hash, hashOffset, ICConstants.SHA256_DIGEST_SIZE, signBuff, signBuffOffset);
     }
 
     short ecSignWithSHA256Digest(byte[] data, short dataOffset, short dataLen, byte[] signBuff, short signBuffOffset) {
@@ -206,11 +229,6 @@ public class CryptoManager {
     void generateRandomData(byte[] tempBuffer, short offset, short length) {
         mRandomData.nextBytes(tempBuffer, offset, length);
     }
-    
-    KMByteBlob getTempBuffer() {
-    	return mTempBuffer;
-    }
-    
 
     public void assertStatusFlagSet(byte statusFlag) {
         if (!ICUtil.getBit(mStatusFlags, statusFlag)) {
@@ -238,13 +256,13 @@ public class CryptoManager {
     		byte[] outNonceAndTag, short outNonceAndTagOff) {
 
         // Generate the IV
-        mRandomData.nextBytes(outNonceAndTag, outNonceAndTagOff, AES_GCM_IV_SIZE);
+        mRandomData.nextBytes(outNonceAndTag, outNonceAndTagOff, ICConstants.AES_GCM_IV_SIZE);
     	return mCryptoProvider.aesGCMEncrypt(mCredentialStorageKey, (short)0, (short)mCredentialStorageKey.length,
     			data, dataOffset, dataLen,
     			outData, outDataOffset,
-    			outNonceAndTag, (short)outNonceAndTagOff, AES_GCM_IV_SIZE,
+    			outNonceAndTag, (short)outNonceAndTagOff, ICConstants.AES_GCM_IV_SIZE,
     			authData, authDataOffset, authDataLen,
-    			outNonceAndTag, (short)(outNonceAndTagOff + AES_GCM_IV_SIZE), AES_GCM_TAG_SIZE);
+    			outNonceAndTag, (short)(outNonceAndTagOff + ICConstants.AES_GCM_IV_SIZE), ICConstants.AES_GCM_TAG_SIZE);
     }
 
     public boolean aesGCMDecrypt(byte[] encData, short encDataOffset, short encDataLen,
@@ -255,9 +273,9 @@ public class CryptoManager {
         return mCryptoProvider.aesGCMDecrypt(mCredentialStorageKey, (short)0, (short)mCredentialStorageKey.length,
                 encData, encDataOffset, encDataLen,
                 outData, outDataOffset,
-                nonceAndTag, nonceAndTagOff, AES_GCM_IV_SIZE,
+                nonceAndTag, nonceAndTagOff, ICConstants.AES_GCM_IV_SIZE,
                 authData, authDataOffset, authDataLen,
-                nonceAndTag, (short)(nonceAndTagOff + AES_GCM_IV_SIZE), AES_GCM_TAG_SIZE);
+                nonceAndTag, (short)(nonceAndTagOff + ICConstants.AES_GCM_IV_SIZE), ICConstants.AES_GCM_TAG_SIZE);
     }
 
     short entryptCredentialData(boolean isTestCredential,
@@ -267,23 +285,23 @@ public class CryptoManager {
     		byte[] outNonceAndTag, short outNonceAndTagOff) {
 
         // Generate the IV
-        mRandomData.nextBytes(outNonceAndTag, outNonceAndTagOff, AES_GCM_IV_SIZE);
+        mRandomData.nextBytes(outNonceAndTag, outNonceAndTagOff, ICConstants.AES_GCM_IV_SIZE);
         if(isTestCredential) {
         	//In case of testCredential HBK should be initialized with 0's
         	//If testCredential is true mCredentialStorageKey is already initialized with 0's so no need to create separate HBK for testCredential.
         	return mCryptoProvider.aesGCMEncrypt(mCredentialStorageKey, (short)0, (short)mCredentialStorageKey.length,
 	    			data, dataOffset, dataLen,
 	    			outData, outDataOffset,
-	    			outNonceAndTag, (short)outNonceAndTagOff, AES_GCM_IV_SIZE,
+	    			outNonceAndTag, (short)outNonceAndTagOff, ICConstants.AES_GCM_IV_SIZE,
 	    			authData, authDataOffset, authDataLen,
-	    			outNonceAndTag, (short)(outNonceAndTagOff + AES_GCM_IV_SIZE), AES_GCM_TAG_SIZE);
+	    			outNonceAndTag, (short)(outNonceAndTagOff + ICConstants.AES_GCM_IV_SIZE), ICConstants.AES_GCM_TAG_SIZE);
         } else {
 	    	return mCryptoProvider.aesGCMEncrypt(mHBK, (short)0, (short)mHBK.length,
 	    			data, dataOffset, dataLen,
 	    			outData, outDataOffset,
-	    			outNonceAndTag, (short)outNonceAndTagOff, AES_GCM_IV_SIZE,
+	    			outNonceAndTag, (short)outNonceAndTagOff, ICConstants.AES_GCM_IV_SIZE,
 	    			authData, authDataOffset, authDataLen,
-	    			outNonceAndTag, (short)(outNonceAndTagOff + AES_GCM_IV_SIZE), AES_GCM_TAG_SIZE);
+	    			outNonceAndTag, (short)(outNonceAndTagOff + ICConstants.AES_GCM_IV_SIZE), ICConstants.AES_GCM_TAG_SIZE);
         }
     }
 
@@ -345,4 +363,52 @@ public class CryptoManager {
     public boolean verifyCertByPubKey(byte[] cert, short certOffset, short certLen, byte[] pubKey, short pubKeyOffset, short pubKeyLen) {
         return mCryptoProvider.verifyCertByPubKey(cert, certOffset, certLen, pubKey, pubKeyOffset, pubKeyLen);
     }
+
+	public short constructPublicKeyCertificate(byte[] pubKey, short pubKeyOffset, short pubKeyLen,
+												byte[] proofOfBinding, short pobOffset, short pobLen,
+												byte[] timeBuffer, short timeOffset,
+												byte[] pubCertOut, short pubCertOutOffset) {
+		Util.arrayCopyNonAtomic(X509_CERT_BASE, (short)0, pubCertOut, pubCertOutOffset, (short)X509_CERT_BASE.length);
+		
+		AID keymasterAID = JCSystem.lookupAID(ICConstants.KEYMASTER_AID, (byte)0, (byte)ICConstants.KEYMASTER_AID.length);
+		if(keymasterAID == null) {
+			ISOException.throwIt((short)1);;
+		}
+		//Not before date time
+		byte[] globalOutArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)257);
+		Util.arrayCopyNonAtomic(timeBuffer, timeOffset, globalOutArray, (short)0, LONG_SIZE);
+		Shareable sharable = JCSystem.getAppletShareableInterfaceObject(keymasterAID, (byte)1);
+        short dateLen = ((KMAppletBridge)sharable).convertDate(globalOutArray, (short)0,
+        													globalOutArray, (short)0);
+        if(dateLen != (short)13) {
+        	ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        Util.arrayCopyNonAtomic(globalOutArray, (short)0, pubCertOut, (short)(pubCertOutOffset + X509_CERT_POS_VALID_NOT_BEFORE), dateLen);
+    	//Not after
+        ICUtil.incrementByteArray(timeBuffer, timeOffset, LONG_SIZE, ICConstants.ONE_YEAR_MS, (short)0, (byte)ICConstants.ONE_YEAR_MS.length);
+        Util.arrayCopyNonAtomic(timeBuffer, timeOffset, globalOutArray, (short)0, LONG_SIZE);
+		dateLen = ((KMAppletBridge)sharable).convertDate(globalOutArray, (short)0,
+				globalOutArray, (short)0);
+		if(dateLen != (short)13) {
+        	ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+        }
+        Util.arrayCopyNonAtomic(globalOutArray, (short)0, pubCertOut, (short)(pubCertOutOffset + X509_CERT_POS_VALID_NOT_AFTER), dateLen);
+		JCSystem.requestObjectDeletion();
+
+		//Set public key length
+		pubCertOut[(short) (pubCertOutOffset + X509_CERT_BASE.length - 2)] = (byte)(pubKeyLen + 1);
+		Util.arrayCopyNonAtomic(pubKey, pubKeyOffset, pubCertOut, (short)(pubCertOutOffset + X509_CERT_BASE.length), pubKeyLen);
+		Util.arrayCopyNonAtomic(X509_DER_POB, (short)0, pubCertOut, (short)(pubCertOutOffset + X509_CERT_BASE.length + pubKeyLen), (short)X509_DER_POB.length);
+
+		Util.arrayCopyNonAtomic(proofOfBinding, pobOffset, pubCertOut, (short)(pubCertOutOffset + X509_CERT_BASE.length + pubKeyLen + X509_DER_POB.length), pobLen);
+		short tbsCertLen = (short)(X509_CERT_BASE.length + pubKeyLen + X509_DER_POB.length + pobLen -  X509_CERT_POS_TOTAL_LEN - SHORT_SIZE);
+		Util.arrayCopyNonAtomic(X509_DER_SIGNATURE, (short)0, pubCertOut, (short)(pubCertOutOffset + X509_CERT_POS_TOTAL_LEN + SHORT_SIZE + tbsCertLen), (short)(X509_DER_SIGNATURE.length));
+
+		short signLen = ecSignWithSHA256Digest(pubCertOut, (short)(pubCertOutOffset + X509_CERT_POS_TOTAL_LEN + SHORT_SIZE), tbsCertLen, pubCertOut, (short)(pubCertOutOffset + X509_CERT_POS_TOTAL_LEN + SHORT_SIZE + tbsCertLen + X509_DER_SIGNATURE.length));
+		pubCertOut[(short) (pubCertOutOffset + X509_CERT_POS_TOTAL_LEN + SHORT_SIZE + tbsCertLen + X509_DER_SIGNATURE.length - 2)] = (byte)(signLen + 1);
+		Util.setShort(pubCertOut, (short) (pubCertOutOffset + X509_CERT_POS_TOTAL_LEN), (short)(tbsCertLen + X509_DER_SIGNATURE.length + signLen));
+
+		return (short)(X509_CERT_POS_TOTAL_LEN + SHORT_SIZE + tbsCertLen + X509_DER_SIGNATURE.length + signLen);
+	}
+
 }
