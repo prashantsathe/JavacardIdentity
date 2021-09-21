@@ -274,11 +274,13 @@ ndk::ScopedAStatus WritableIdentityCredential::addEntryValue(const vector<uint8_
     size_t contentSize = content.size();
 
     if (contentSize > hwProxy_->getHwChunkSize()) {
+		LOG(ERROR) << "content size is larger than HwChunkSize " << hwProxy_->getHwChunkSize();
 		return ndk::ScopedAStatus(AStatus_fromServiceSpecificErrorWithMessage(
                 IIdentityCredentialStore::STATUS_INVALID_DATA,
                 "Passed in chunk is bigger than HwChunkSize"));
     }
     if (contentSize > entryRemainingBytes_) {
+		LOG(ERROR) << "content size is larger than entryRemainingBytes_ " << entryRemainingBytes_;
         return ndk::ScopedAStatus(AStatus_fromServiceSpecificErrorWithMessage(
                 IIdentityCredentialStore::STATUS_INVALID_DATA,
                 "Passed in chunk is bigger than remaining space"));
@@ -288,6 +290,7 @@ ndk::ScopedAStatus WritableIdentityCredential::addEntryValue(const vector<uint8_
     entryRemainingBytes_ -= contentSize;
     if (entryRemainingBytes_ > 0) {
         if (contentSize != hwProxy_->getHwChunkSize()) {
+		    LOG(ERROR) << "content size is not equal to HwChunkSize " << hwProxy_->getHwChunkSize();
 		    return ndk::ScopedAStatus(AStatus_fromServiceSpecificErrorWithMessage(
                     IIdentityCredentialStore::STATUS_INVALID_DATA,
                     "Retrieved non-final chunk which isn't HwChunkSize"));

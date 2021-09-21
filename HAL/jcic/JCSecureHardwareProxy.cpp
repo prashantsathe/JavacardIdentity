@@ -285,9 +285,57 @@ size_t JCSecureHardwareProvisioningProxy::getHwChunkSize() {
 optional<vector<uint8_t>> JCSecureHardwareProvisioningProxy::createCredentialKey(
         const vector<uint8_t>& challenge, const vector<uint8_t>& applicationId) {
     LOG(INFO) << "JCSecureHardwareProvisioningProxy createCredentialKey ";
+	
+	// Send the command to get attestation certificate chain
+    CommandApdu commandToChain{AppletConnection::CLA_PROPRIETARY, AppletConnection::INS_ICS_GET_CERT_CHAIN, 0, 0, 0, 0};
+    
+    ResponseApdu responseToChain = mAppletConnection.transmit(commandToChain);
+
+    if (!responseToChain.ok() || (responseToChain.status() != AppletConnection::SW_OK)) {
+        return {};
+    }
+    vector<uint8_t> responseToChainCbor(responseToChain.dataSize());
+    std::copy(responseToChain.dataBegin(), responseToChain.dataEnd(), responseToChainCbor.begin());
+    auto [item1, dummy, message1] = cppbor::parse(responseToChainCbor);
+    if (item1 == nullptr) {
+        LOG(ERROR) << "INS_ICS_GET_CERT_CHAIN response is not valid CBOR: " << message1;
+        return {};
+    }
+
+    const cppbor::Array* arrayItem1 = item1->asArray();
+    if (arrayItem1 == nullptr || arrayItem1->size() != 2) {
+        LOG(ERROR) << "INS_ICS_GET_CERT_CHAIN response is not an array with two elements";
+        return {};
+    }
+
+    const cppbor::Uint* successCode1 = (*arrayItem1)[0]->asUint();
+    if(successCode1->value() != 0) {
+        LOG(ERROR) << "INS_ICS_GET_CERT_CHAIN response is not success";
+        return {};
+    }
+    const cppbor::Array* returnArray1 = (*arrayItem1)[1]->asArray();
+    if (returnArray1 == nullptr || returnArray1->size() != 1) {
+        LOG(ERROR) << "INS_ICS_GET_CERT_CHAIN returned wrong array";
+        return {};
+    }
+    const cppbor::Bstr* certChainBstr = (*returnArray1)[0]->asBstr();
+    const vector<uint8_t> certChain = certChainBstr->value();
+	
+	optional<pair<time_t, time_t>> batchCertValidatyPair = android::hardware::identity::support::certificateGetValidity(certChain);
+	
+    uint64_t nowMs = time(nullptr) * 1000;
+	uint64_t expireTimeMs = batchCertValidatyPair->second * 1000;  // Set to same as batch certificate
+	
+    cppbor::Array pArray;
+    pArray.add(challenge)
+			.add(applicationId)
+			.add(nowMs)
+			.add(expireTimeMs);
+    vector<uint8_t> encodedCbor = pArray.encode();
 
     // Send the command to the applet to create a new credential
-    CommandApdu command{AppletConnection::CLA_PROPRIETARY, AppletConnection::INS_ICS_CREATE_CREDENTIAL_KEY, 0, 0};
+    CommandApdu command{AppletConnection::CLA_PROPRIETARY, AppletConnection::INS_ICS_CREATE_CREDENTIAL_KEY, 0, 0, encodedCbor.size(), 0};
+    std::copy(encodedCbor.begin(), encodedCbor.end(), command.dataBegin());
 
     ResponseApdu response = mAppletConnection.transmit(command);
 
@@ -314,18 +362,17 @@ optional<vector<uint8_t>> JCSecureHardwareProvisioningProxy::createCredentialKey
         return {};
     }
     const cppbor::Array* returnArray = (*arrayItem)[1]->asArray();
-    const cppbor::Bstr* pubKeyBstr = (*returnArray)[0]->asBstr();
-    const vector<uint8_t> pubKey = pubKeyBstr->value();
-    //TODO currently attestation certificate is created from SoftKeyMaster, we need to get from applet.
-    optional<vector<vector<uint8_t>>> certChain =  android::hardware::identity::support::createAttestationForEcPublicKey(
-                    pubKey, challenge, applicationId/*, isTestCredential*/);
-    // Extract certificate chain.
-    vector<uint8_t> pubKeyCert =
-            android::hardware::identity::support::certificateChainJoin(certChain.value());
-    LOG(INFO) << "INS_ICS_CREATE_CREDENTIAL_KEY attested certificate from SoftKeyMaster :";
+    const cppbor::Bstr* pubKeyCertBstr = (*returnArray)[0]->asBstr();
+    const vector<uint8_t> pubKeyCert = pubKeyCertBstr->value();
+    LOG(INFO) << "INS_ICS_CREATE_CREDENTIAL_KEY attested certificate from Applet :";
     printByteArray(pubKeyCert.data(), pubKeyCert.size());
 
-    return pubKeyCert;
+	vector<uint8_t> ret;
+	ret.insert(ret.end(), pubKeyCert.begin(), pubKeyCert.end());
+	ret.insert(ret.end(), certChain.begin(), certChain.end());
+    LOG(INFO) << "INS_ICS_GET_CERT_CHAIN attested certificate chain :";
+    printByteArray(ret.data(), ret.size());
+    return ret;
 }
 
 bool JCSecureHardwareProvisioningProxy::startPersonalization(
@@ -712,7 +759,7 @@ JCSecureHardwarePresentationProxy::generateSigningKeyPair(string docType, time_t
 
     cppbor::Array pArray;
     pArray.add(docType)
-        .add(now);
+        .add((now * 1000));
     vector<uint8_t> encodedCbor = pArray.encode();
 
     // Send the command to the applet to create a new credential

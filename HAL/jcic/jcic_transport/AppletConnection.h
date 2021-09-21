@@ -40,6 +40,7 @@ public:
     static constexpr uint8_t INS_ICS_CREATE_EPHEMERAL_KEY =  0x52;
     static constexpr uint8_t INS_ICS_TEST_CBOR =  0x53;
     static constexpr uint8_t INS_ICS_GET_HARDWARE_INFO = 0x54;
+    static constexpr uint8_t INS_ICS_GET_CERT_CHAIN = 0x55;
 
     /**
      * Credential provisioning instructions

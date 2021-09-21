@@ -21,7 +21,7 @@
 #include "TransportClient.h"
 #include <errno.h>
 
-#define PORT    8080
+#define PORT    8090
 //#define IPADDR  "192.168.0.29"
 #define IPADDR  "192.168.100.3"
 #define MAX_RECV_BUFFER_SIZE 2500
