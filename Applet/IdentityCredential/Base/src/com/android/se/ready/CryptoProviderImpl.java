@@ -303,17 +303,6 @@ final class CryptoProviderImpl implements ICryptoProvider{
 		return mHMACSignature.verify(data, dataOffset, dataLen, mac, macOffset, macLen);
 	}
 
-	public boolean validateAuthToken(byte[] tokenData, short tokenOffset, short tokenLen) {
-		/*KMICInterface kmICInterface = getKMICInterface();
-		byte[] tempGlobalByteArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, tokenLen);
-		Util.arrayCopyNonAtomic(tokenData, tokenOffset, tempGlobalByteArray, (short)0, tokenLen);
-		//return true;
-		boolean result = kmICInterface.validateAuthToken(tempGlobalByteArray, (short)0, tokenLen);
-		JCSystem.requestObjectDeletion();
-		return result;*/
-		return false;//TODO Use Keymaster's hardware auth token validation method
-	}
-
 	public boolean verifyCertByPubKey(byte[] cert, short certOffset, short certLen,
 									  byte[] pubKey, short pubKeyOffset, short pubKeyLen) {
 		if(certLen <= 0 || cert[certOffset] != 0x30) {

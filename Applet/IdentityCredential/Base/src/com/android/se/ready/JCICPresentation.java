@@ -64,8 +64,8 @@ final class JCICPresentation {
 	// Set by eicPresentationSetAuthToken() and contains the fields
 	// from the passed in authToken and verificationToken.
 	//
-	byte mAuthChallengeOffset = (byte) 0;
-	byte mAuthTokenChallengeOffset = (byte) (mAuthChallengeOffset + LONG_SIZE);
+	//byte mAuthChallengeOffset = (byte) 0;
+	byte mAuthTokenChallengeOffset = (byte)0;// (mAuthChallengeOffset + LONG_SIZE);
 	byte mAuthTokenSecureUserIdOffset = (byte)(mAuthTokenChallengeOffset + LONG_SIZE);
 	byte mAuthTokenTimestampOffset = (byte)(mAuthTokenSecureUserIdOffset + LONG_SIZE);
 	byte mVerificationTokenTimestampOffset = (byte)(mAuthTokenTimestampOffset + LONG_SIZE);
@@ -135,6 +135,7 @@ final class JCICPresentation {
 		short tempBufferOffset = JCICStoreApplet.getTempByteBlob().getStartOff();
 		short tempBufferLen = JCICStoreApplet.getTempByteBlob().getLength();
 		short outGoingLength = (short)0;
+		Util.arrayFillNonAtomic(tempBuffer, tempBufferOffset, tempBufferLen, (byte)0);
 
 		switch(receiveBuffer[ISO7816.OFFSET_INS]) {
 			case ISO7816.INS_ICS_PRESENTATION_INIT:
@@ -524,43 +525,64 @@ final class JCICPresentation {
 		mCBORDecoder.init(receiveBuffer, receivingDataOffset, receivingDataLength);
 		mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
 		mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
-		mCBORDecoder.skipEntry();//challenge
-		mCBORDecoder.skipEntry();//secureUserId
-		mCBORDecoder.skipEntry();//authenticatorId
-		mCBORDecoder.skipEntry();//hardwareAuthenticatorType
-		mCBORDecoder.skipEntry();//timeStamp
-		mCBORDecoder.skipEntry();//mac
+		short challengeOffset = tempBuffOffset;
+		byte intSize = mCBORDecoder.getIntegerSize();//challenge
+        ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(challengeOffset + LONG_SIZE - intSize));
+		short secureUserIdOffset = (short)(challengeOffset + LONG_SIZE);
+		intSize = mCBORDecoder.getIntegerSize();//secureUserId
+        ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(secureUserIdOffset + LONG_SIZE - intSize));
+		short authenticatorIdOffset = (short)(secureUserIdOffset + LONG_SIZE);
+		intSize = mCBORDecoder.getIntegerSize();//authenticatorId
+        ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(authenticatorIdOffset + LONG_SIZE - intSize));
+		short hardwareAuthenticatorTypeOffset = (short)(authenticatorIdOffset + LONG_SIZE);
+		intSize = mCBORDecoder.getIntegerSize();//hardwareAuthenticatorType
+        short hardwareAuthenticatorTypeLen = ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(hardwareAuthenticatorTypeOffset));
+		short timeStampOffset = (short)(hardwareAuthenticatorTypeOffset + hardwareAuthenticatorTypeLen);
+		intSize = mCBORDecoder.getIntegerSize();//timeStamp
+        ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(timeStampOffset + LONG_SIZE - intSize));
+        short macOffset = (short)(timeStampOffset + LONG_SIZE);
+        short macLen = mCBORDecoder.readByteString(tempBuffer, macOffset);
 		mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
-		byte intSize = mCBORDecoder.getIntegerSize();
+		intSize = mCBORDecoder.getIntegerSize();
 		if(intSize < LONG_SIZE) {
 			ISOException.throwIt(ISO7816.SW_DATA_INVALID);
 		}
-		short verificationTokenChallengeOffset = tempBuffOffset;//verificationTokenChallenge
-		mCBORDecoder.readInt64(tempBuffer, verificationTokenChallengeOffset);
-		if(Util.arrayCompare(tempBuffer, verificationTokenChallengeOffset, mAuthChallenge, (short)0, LONG_SIZE) != 0) {
+		short verificationTokenChallengeOffset = (short)(macOffset + macLen);
+		intSize = mCBORDecoder.getIntegerSize();//verificationTokenChallenge
+        ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(verificationTokenChallengeOffset + LONG_SIZE - intSize));
+        if(Util.arrayCompare(tempBuffer, verificationTokenChallengeOffset, mAuthChallenge, (short)0, LONG_SIZE) != 0) {
 			ISOException.throwIt(ISO7816.SW_DATA_INVALID);
 		}
 
-		if(!validateAuthToken(receiveBuffer, receivingDataOffset, receivingDataLength, tempBuffer, tempBuffOffset)) {
+		short verificationTokenTimeStampOffset = (short)(verificationTokenChallengeOffset + LONG_SIZE);
+		intSize = mCBORDecoder.getIntegerSize();//verificationTokenTimestamp
+        ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(verificationTokenTimeStampOffset + LONG_SIZE - intSize));
+		short parametersVerifiedOffset = (short)(verificationTokenTimeStampOffset + LONG_SIZE); //parametersVerified
+		short parameterVerifiedLen = mCBORDecoder.readByteString(tempBuffer, parametersVerifiedOffset);
+		short verificationTokensecurityLevelOffset = (short)(parametersVerifiedOffset + parameterVerifiedLen);//verificationTokensecurityLevel
+        short verificationTokensecurityLevelLen = ICUtil.readUInt(mCBORDecoder, tempBuffer, verificationTokensecurityLevelOffset);
+		short verificationTokenMacOffset = (short)(verificationTokensecurityLevelOffset + verificationTokensecurityLevelLen); //verificationTokenMac
+		short verificationTokenMacLen = mCBORDecoder.readByteString(tempBuffer, verificationTokenMacOffset);
+		if(!validateAuthToken(tempBuffer,
+				challengeOffset, LONG_SIZE,//Challenge
+				secureUserIdOffset, LONG_SIZE,//secureUserId
+				authenticatorIdOffset, LONG_SIZE,//authenticatorId
+				hardwareAuthenticatorTypeOffset, hardwareAuthenticatorTypeLen,//hardwareAuthenticatorType
+				timeStampOffset, LONG_SIZE,//timeStamp
+				macOffset, macLen,//Mac
+				verificationTokenChallengeOffset, LONG_SIZE,//verificationTokenChallenge
+				verificationTokenTimeStampOffset, LONG_SIZE,//verificationTokenTimestamp
+				parametersVerifiedOffset, parameterVerifiedLen,//parametersVerified
+				verificationTokensecurityLevelOffset, verificationTokensecurityLevelLen,//verificationTokensecurityLevel
+				verificationTokenMacOffset, verificationTokenMacLen//verificationTokenMac
+				)) {
 			ISOException.throwIt(ISO7816.SW_CONDITIONS_NOT_SATISFIED);
 		}
 
-		mCBORDecoder.init(receiveBuffer, receivingDataOffset, receivingDataLength);
-		mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
-		mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
-		short authTokenChallengeOffsetLen = ICUtil.readUInt(mCBORDecoder, tempBuffer, tempBuffOffset);//challenge
-		Util.arrayCopyNonAtomic(tempBuffer, tempBuffOffset, mAuthAndVerificationTokensLongs, (short)(mAuthTokenChallengeOffset + LONG_SIZE - authTokenChallengeOffsetLen), authTokenChallengeOffsetLen);
-		short authTokenSecureUserIdLen = ICUtil.readUInt(mCBORDecoder, tempBuffer, tempBuffOffset);//secureUserId
-		Util.arrayCopyNonAtomic(tempBuffer, tempBuffOffset, mAuthAndVerificationTokensLongs, (short)(mAuthTokenSecureUserIdOffset + LONG_SIZE - authTokenSecureUserIdLen), authTokenSecureUserIdLen);
-		mCBORDecoder.skipEntry();//authenticatorId
-		mCBORDecoder.skipEntry();//hardwareAuthenticatorType
-		short authTokenTimeStampLen = ICUtil.readUInt(mCBORDecoder, tempBuffer, tempBuffOffset);//timestamp
-		Util.arrayCopyNonAtomic(tempBuffer, tempBuffOffset, mAuthAndVerificationTokensLongs, (short)(mAuthTokenTimestampOffset + LONG_SIZE - authTokenTimeStampLen), authTokenTimeStampLen);
-		mCBORDecoder.skipEntry();//mac
-		mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
-		mCBORDecoder.skipEntry();//verificationTokenChallenge
-		short verificationTokenTimeStampLen = ICUtil.readUInt(mCBORDecoder, tempBuffer, tempBuffOffset);//verificationTokenTimestamp
-		Util.arrayCopyNonAtomic(tempBuffer, tempBuffOffset, mAuthAndVerificationTokensLongs, (short)(mVerificationTokenTimestampOffset + LONG_SIZE - verificationTokenTimeStampLen), verificationTokenTimeStampLen);
+		Util.arrayCopyNonAtomic(tempBuffer, challengeOffset, mAuthAndVerificationTokensLongs, mAuthTokenChallengeOffset, LONG_SIZE);
+		Util.arrayCopyNonAtomic(tempBuffer, secureUserIdOffset, mAuthAndVerificationTokensLongs, mAuthTokenSecureUserIdOffset, LONG_SIZE);
+		Util.arrayCopyNonAtomic(tempBuffer, timeStampOffset, mAuthAndVerificationTokensLongs, mAuthTokenTimestampOffset, LONG_SIZE);
+		Util.arrayCopyNonAtomic(tempBuffer, verificationTokenTimeStampOffset, mAuthAndVerificationTokensLongs, mVerificationTokenTimestampOffset, LONG_SIZE);
 
 		mCBOREncoder.init(outBuffer, (short) 0, le);
 		mCBOREncoder.startArray((short)1);
@@ -568,19 +590,37 @@ final class JCICPresentation {
 		return mCBOREncoder.getCurrentOffset();
 	}
 
-	private boolean validateAuthToken(byte[] receiveBuffer, short receivingDataOffset, short receivingDataLength,
-									  byte[] tempBuffer, short tempBufferOffset) {
+	private boolean validateAuthToken(byte[] argsBuff,
+									short challengeOffset, short challengeLen,
+									short secureUserIdOffset, short secureUserIdLen,
+									short authenticatorIdOffset, short authenticatorIdLen,
+									short hardwareAuthenticatorTypeOffset, short hardwareAuthenticatorTypeLen,
+									short timeStampOffset, short timeStampLen,
+									short macOffset, short macLen,
+									short verificationTokenChallengeOffset, short verificationTokenChallengeLen,
+									short verificationTokenTimeStampOffset, short verificationTokenTimeStampLen,
+									short parametersVerifiedOffset, short parametersVerifiedLen,
+									short verificationTokensecurityLevelOffset, short verificationTokensecurityLevelLen,
+									short verificationTokenMacOffset, short verificationTokenMacLen) {
 		// Here's where we would validate the passed-in |authToken| to assure ourselves
 		// that it comes from the e.g. biometric hardware and wasn't made up by an attacker.
-		//
-		// However this involves calculating the MAC which requires access to the to
-		// a pre-shared key which we don't have...
 		//
 		if (mCryptoManager.getStatusFlag(CryptoManager.FLAG_TEST_CREDENTIAL)) {
 			return true;
 		}
 
-		return mCryptoManager.validateAuthToken(receiveBuffer, receivingDataOffset, receivingDataLength);
+		return mCryptoManager.validateAuthToken(argsBuff,
+				challengeOffset, challengeLen,
+				secureUserIdOffset, secureUserIdLen,
+				authenticatorIdOffset, authenticatorIdLen,
+				hardwareAuthenticatorTypeOffset, hardwareAuthenticatorTypeLen,
+				timeStampOffset, timeStampLen,
+				macOffset, macLen,
+				verificationTokenChallengeOffset, verificationTokenChallengeLen,
+				verificationTokenTimeStampOffset, verificationTokenTimeStampLen,
+				parametersVerifiedOffset, parametersVerifiedLen,
+				verificationTokensecurityLevelOffset, verificationTokensecurityLevelLen,
+				verificationTokenMacOffset, verificationTokenMacLen);
 	}
 
 	private short processValidateAccessControlProfile(byte[] receiveBuffer, short receivingDataOffset, short receivingDataLength,

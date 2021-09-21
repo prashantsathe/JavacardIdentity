@@ -152,8 +152,6 @@ public interface ICryptoProvider {
 					   byte[] data, short dataOffset, short dataLen,
 					   byte[] mac, short macOffset, short macLen);
 
-	boolean validateAuthToken(byte[] tokenData, short tokenOffset, short tokenLen);
-
 	boolean verifyCertByPubKey(byte[] cert, short certOffset, short certLen,
 							   byte[] pubKey, short pubKeyOffset, short pubKeyLen);
 }

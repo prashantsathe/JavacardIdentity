@@ -356,8 +356,57 @@ public class CryptoManager {
                                     mac, macOffset, macLen);
     }
 
-    public boolean validateAuthToken(byte[] tokenBuff, short tokenOff, short tokenLen) {
-        return mCryptoProvider.validateAuthToken(tokenBuff, tokenOff, tokenLen);
+    public boolean validateAuthToken(byte[] argsBuff,
+    		short challengeOffset, short challengeLen,
+    		short secureUserIdOffset, short secureUserIdLen,
+    		short authenticatorIdOffset, short authenticatorIdLen,
+    		short hardwareAuthenticatorTypeOffset, short hardwareAuthenticatorTypeLen,
+    		short timeStampOffset, short timeStampLen,
+    		short macOffset, short macLen,
+    		short verificationTokenChallengeOffset, short verificationTokenChallengeLen,
+    		short verificationTokenTimeStampOffset, short verificationTokenTimeStampLen,
+    		short parametersVerifiedOffset, short parametersVerifiedLen,
+    		short verificationTokensecurityLevelOffset, short verificationTokensecurityLevelLen,
+    		short verificationTokenMacOffset, short verificationTokenMacLen) {
+    	
+    	AID keymasterAID = JCSystem.lookupAID(ICConstants.KEYMASTER_AID, (byte)0, (byte)ICConstants.KEYMASTER_AID.length);
+		if(keymasterAID == null) {
+			ISOException.throwIt((short)1);;
+		}
+		short argsLen = (short) (challengeLen + secureUserIdLen + authenticatorIdLen
+								+ hardwareAuthenticatorTypeLen + timeStampLen + macLen
+								+ verificationTokenChallengeLen + verificationTokenTimeStampLen
+								+ parametersVerifiedLen + verificationTokensecurityLevelLen + verificationTokenMacLen);
+		byte[] globalArgsArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, argsLen);
+		byte[] scratchPad = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)256);
+		Util.arrayCopyNonAtomic(argsBuff, challengeOffset, globalArgsArray, challengeOffset, challengeLen);
+		Util.arrayCopyNonAtomic(argsBuff, secureUserIdOffset, globalArgsArray, secureUserIdOffset, secureUserIdLen);
+		Util.arrayCopyNonAtomic(argsBuff, authenticatorIdOffset, globalArgsArray, authenticatorIdOffset, authenticatorIdLen);
+		Util.arrayCopyNonAtomic(argsBuff, hardwareAuthenticatorTypeOffset, globalArgsArray, hardwareAuthenticatorTypeOffset, hardwareAuthenticatorTypeLen);
+		Util.arrayCopyNonAtomic(argsBuff, timeStampOffset, globalArgsArray, timeStampOffset, timeStampLen);
+		Util.arrayCopyNonAtomic(argsBuff, macOffset, globalArgsArray, macOffset, macLen);
+		Util.arrayCopyNonAtomic(argsBuff, verificationTokenChallengeOffset, globalArgsArray, verificationTokenChallengeOffset, verificationTokenChallengeLen);
+		Util.arrayCopyNonAtomic(argsBuff, verificationTokenTimeStampOffset, globalArgsArray, verificationTokenTimeStampOffset, verificationTokenTimeStampLen);
+		Util.arrayCopyNonAtomic(argsBuff, parametersVerifiedOffset, globalArgsArray, parametersVerifiedOffset, parametersVerifiedLen);
+		Util.arrayCopyNonAtomic(argsBuff, verificationTokensecurityLevelOffset, globalArgsArray, verificationTokensecurityLevelOffset, verificationTokensecurityLevelLen);
+		Util.arrayCopyNonAtomic(argsBuff, verificationTokenMacOffset, globalArgsArray, verificationTokenMacOffset, verificationTokenMacLen);
+		Shareable sharable = JCSystem.getAppletShareableInterfaceObject(keymasterAID, (byte)1);
+        boolean isVerified = ((KMAppletBridge)sharable).validateAuthTokensExt(
+        			globalArgsArray,
+            		challengeOffset, challengeLen,
+            		secureUserIdOffset, secureUserIdLen,
+            		authenticatorIdOffset, authenticatorIdLen,
+            		hardwareAuthenticatorTypeOffset, hardwareAuthenticatorTypeLen,
+            		timeStampOffset, timeStampLen,
+            		macOffset, macLen,
+            		verificationTokenChallengeOffset, verificationTokenChallengeLen,
+            		verificationTokenTimeStampOffset, verificationTokenTimeStampLen,
+            		parametersVerifiedOffset, parametersVerifiedLen,
+            		verificationTokensecurityLevelOffset, verificationTokensecurityLevelLen,
+            		verificationTokenMacOffset, verificationTokenMacLen,
+        			scratchPad);
+        JCSystem.requestObjectDeletion();
+        return isVerified;
     }
 
     public boolean verifyCertByPubKey(byte[] cert, short certOffset, short certLen, byte[] pubKey, short pubKeyOffset, short pubKeyLen) {

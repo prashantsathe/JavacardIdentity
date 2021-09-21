@@ -65,7 +65,6 @@ public class APDUManager {
         mStatusValues = JCSystem.makeTransientShortArray(STATUS_VALUES_SIZE, JCSystem.CLEAR_ON_DESELECT);
         mStatusFlags = JCSystem.makeTransientByteArray(STATUS_FLAGS_SIZE, JCSystem.CLEAR_ON_DESELECT);
 
-        // TODO: evaluate if we should use flash memory for the large buffer
         mLargeSendAndRecvBuffer = JCSystem.makeTransientByteArray(
                 (short) (LARGE_RECV_BUFFERSIZE + cryptoHeaderOverhead), JCSystem.CLEAR_ON_DESELECT);
 
