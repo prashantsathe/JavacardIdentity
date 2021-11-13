@@ -80,6 +80,38 @@ void printByteArray(const uint8_t* byteBuffer, size_t size) {
 
 }
 
+/* Temporary changes for attestation certificate chain - begin */
+constexpr char hex_value[256] = {0, 0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0,  //
+                                 0, 0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0,  //
+                                 0, 0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0,  //
+                                 0, 1,  2,  3,  4,  5,  6,  7, 8, 9, 0, 0, 0, 0, 0, 0,  // '0'..'9'
+                                 0, 10, 11, 12, 13, 14, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 'A'..'F'
+                                 0, 0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0,  //
+                                 0, 10, 11, 12, 13, 14, 15, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // 'a'..'f'
+                                 0, 0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0,  //
+                                 0, 0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0,  //
+                                 0, 0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0,  //
+                                 0, 0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0,  //
+                                 0, 0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0,  //
+                                 0, 0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0,  //
+                                 0, 0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0,  //
+                                 0, 0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0,  //
+                                 0, 0,  0,  0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0, 0};
+string hex2str(string a) {
+    string b;
+    size_t num = a.size() / 2;
+    b.resize(num);
+    for (size_t i = 0; i < num; i++) {
+        b[i] = (hex_value[a[i * 2] & 0xFF] << 4) + (hex_value[a[i * 2 + 1] & 0xFF]);
+    }
+    return b;
+}
+
+string attCertIssuer = hex2str(
+	"301F311D301B06035504030C14416E64726F696420"
+	"4B657973746F7265204B6579"
+);
+/* Temporary changes for attestation certificate chain - end */
 JCSecureHardwareProxy::JCSecureHardwareProxy() {}
 
 JCSecureHardwareProxy::~JCSecureHardwareProxy() {
@@ -285,9 +317,16 @@ size_t JCSecureHardwareProvisioningProxy::getHwChunkSize() {
 optional<vector<uint8_t>> JCSecureHardwareProvisioningProxy::createCredentialKey(
         const vector<uint8_t>& challenge, const vector<uint8_t>& applicationId) {
     LOG(INFO) << "JCSecureHardwareProvisioningProxy createCredentialKey ";
+    uint64_t nowMs = time(nullptr) * 1000;
+    uint64_t expireTimeMs = nowMs + ((uint64_t)(365 * 24 * 60 * 60) * 1000);
+    cppbor::Array pArray1;
+    pArray1.add(nowMs)
+	   .add(expireTimeMs);
+    vector<uint8_t> encodedCbor1 = pArray1.encode();
 	
 	// Send the command to get attestation certificate chain
-    CommandApdu commandToChain{AppletConnection::CLA_PROPRIETARY, AppletConnection::INS_ICS_GET_CERT_CHAIN, 0, 0, 0, 0};
+    CommandApdu commandToChain{AppletConnection::CLA_PROPRIETARY, AppletConnection::INS_ICS_GET_CERT_CHAIN, 0, 0, encodedCbor1.size(), 0};
+    std::copy(encodedCbor1.begin(), encodedCbor1.end(), commandToChain.dataBegin());
     
     ResponseApdu responseToChain = mAppletConnection.transmit(commandToChain);
 
@@ -314,23 +353,27 @@ optional<vector<uint8_t>> JCSecureHardwareProvisioningProxy::createCredentialKey
         return {};
     }
     const cppbor::Array* returnArray1 = (*arrayItem1)[1]->asArray();
-    if (returnArray1 == nullptr || returnArray1->size() != 1) {
+    if (returnArray1 == nullptr || returnArray1->size() != 2) {
         LOG(ERROR) << "INS_ICS_GET_CERT_CHAIN returned wrong array";
         return {};
     }
-    const cppbor::Bstr* certChainBstr = (*returnArray1)[0]->asBstr();
+    const cppbor::Bstr* keyBlobBstr = (*returnArray1)[0]->asBstr();
+    const cppbor::Bstr* certChainBstr = (*returnArray1)[1]->asBstr();
+    const vector<uint8_t> attestKeyBlob = keyBlobBstr->value();
     const vector<uint8_t> certChain = certChainBstr->value();
+    const vector<uint8_t> attestCertIssuer(attCertIssuer.begin(), attCertIssuer.end());
 	
-	optional<pair<time_t, time_t>> batchCertValidatyPair = android::hardware::identity::support::certificateGetValidity(certChain);
+    optional<pair<time_t, time_t>> batchCertValidatyPair = android::hardware::identity::support::certificateGetValidity(certChain);
 	
-    uint64_t nowMs = time(nullptr) * 1000;
-	uint64_t expireTimeMs = batchCertValidatyPair->second * 1000;  // Set to same as batch certificate
+    expireTimeMs = batchCertValidatyPair->second * 1000;  // Set to same as batch certificate
 	
     cppbor::Array pArray;
     pArray.add(challenge)
 			.add(applicationId)
 			.add(nowMs)
-			.add(expireTimeMs);
+			.add(expireTimeMs)
+			.add(attestKeyBlob)
+			.add(attestCertIssuer);
     vector<uint8_t> encodedCbor = pArray.encode();
 
     // Send the command to the applet to create a new credential
@@ -364,6 +407,10 @@ optional<vector<uint8_t>> JCSecureHardwareProvisioningProxy::createCredentialKey
     const cppbor::Array* returnArray = (*arrayItem)[1]->asArray();
     const cppbor::Bstr* pubKeyCertBstr = (*returnArray)[0]->asBstr();
     const vector<uint8_t> pubKeyCert = pubKeyCertBstr->value();
+    if(pubKeyCert.size() == 0) {
+        LOG(ERROR) << "INS_ICS_CREATE_CREDENTIAL_KEY, Crdential Key certificate of 0 length.";
+        return {};
+    }
     LOG(INFO) << "INS_ICS_CREATE_CREDENTIAL_KEY attested certificate from Applet :";
     printByteArray(pubKeyCert.data(), pubKeyCert.size());
 
