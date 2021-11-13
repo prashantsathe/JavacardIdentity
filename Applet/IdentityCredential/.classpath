@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <classpath>
-	<classpathentry excluding="android/security/jcic/KMSEProvider.java|android/security/jcic/CryptoProvider.java" kind="src" path="Base/src"/>
+	<classpathentry kind="src" path="Base/src"/>
 	<classpathentry kind="con" path="com.nxp.id.jcop.eclipse.containers.cardconfig/com.nxp.id.jcop.eclipse.cardconfigs.custom;com.nxp.id.jcop.eclipse.cardapis.jc305;com.nxp.id.jcop.eclipse.cardapis.gp230;com.nxp.id.jcop.eclipse.cardapis.R1.55.1;com.nxp.id.jcop.eclipse.cardapis.gpupgrade11"/>
-	<classpathentry combineaccessrules="false" kind="src" path="/Applet"/>
-	<classpathentry kind="output" path="bin"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/AndroidSEProviderLib"/>
+	<classpathentry combineaccessrules="false" kind="src" path="/Keymint"/>
+	<classpathentry kind="output" path="out/bin"/>
 </classpath>

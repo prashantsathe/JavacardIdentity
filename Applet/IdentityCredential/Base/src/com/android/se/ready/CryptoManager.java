@@ -93,8 +93,8 @@ public class CryptoManager {
             //External access is not supported in JCard simulator.
             mDigest = MessageDigest.getInstance(MessageDigest.ALG_SHA_256, false);
         }
-        mSecondaryDigest = MessageDigest.getInstance(MessageDigest.ALG_SHA_256, false);
-        mAdditionalDataDigester = MessageDigest.getInstance(MessageDigest.ALG_SHA_256, false);
+        mSecondaryDigest = MessageDigest.getInstance(MessageDigest.ALG_SHA_256, true);
+        mAdditionalDataDigester = MessageDigest.getInstance(MessageDigest.ALG_SHA_256, true);
 
     }
 
@@ -149,33 +149,44 @@ public class CryptoManager {
     		short appIdOffset, short appIdLen,
     		short nowMsOffset, short nowMsLen,
     		short expireTimeOffset, short expireTimeLen,
+    		short attestKeyOffset, short attestKeyLen,
+    		short attestCertIssuerOffset, short attestCertIssuerLen,
     		byte[] scratchPad, short scratchPadOffset) {
-        createEcKeyPair(mCredentialKeyPair, (short)0, mCredentialKeyPairLengths);
-
-        short pubKeyOffset = scratchPadOffset;
-        short pubKeyLen = getCredentialEcPubKey(scratchPad, pubKeyOffset);
         short certLen = (short)0;
-		AID keymasterAID = JCSystem.lookupAID(ICConstants.KEYMASTER_AID, (byte)0, (byte)ICConstants.KEYMASTER_AID.length);
-		if(keymasterAID == null) {
-			ISOException.throwIt((short)1);;
-		}
-		
-		byte[] globalArgsArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, ICConstants.TEMP_BUFFER_SIZE);
-		Util.arrayCopyNonAtomic(argsBuff, challengeOffset, globalArgsArray, challengeOffset, challengeLen);
-		Util.arrayCopyNonAtomic(argsBuff, appIdOffset, globalArgsArray, appIdOffset, appIdLen);
-		Util.arrayCopyNonAtomic(argsBuff, nowMsOffset, globalArgsArray, nowMsOffset, nowMsLen);
-		Util.arrayCopyNonAtomic(argsBuff, expireTimeOffset, globalArgsArray, expireTimeOffset, expireTimeLen);
-		Util.arrayCopyNonAtomic(scratchPad, pubKeyOffset, globalArgsArray, (short)(expireTimeOffset + expireTimeLen), pubKeyLen);
-		Shareable sharable = JCSystem.getAppletShareableInterfaceObject(keymasterAID, (byte)1);
-        certLen = ((KMAppletBridge)sharable).createAttestationForEcPublicKey(isTestCredential,
-        			globalArgsArray, (short)(expireTimeOffset + expireTimeLen), pubKeyLen,
-        			appIdOffset, appIdLen,
-        			challengeOffset, challengeLen,
-        			nowMsOffset, (short)ICConstants.LONG_SIZE,
-        			expireTimeOffset, (short)ICConstants.LONG_SIZE,
-        			globalArgsArray, (short)0);
-        Util.arrayCopyNonAtomic(globalArgsArray, (short)0, scratchPad, scratchPadOffset, certLen);
-		return certLen;
+    	try {
+	        createEcKeyPair(mCredentialKeyPair, (short)0, mCredentialKeyPairLengths);
+	
+	        short pubKeyOffset = scratchPadOffset;
+	        short pubKeyLen = getCredentialEcPubKey(scratchPad, pubKeyOffset);
+			AID keymasterAID = JCSystem.lookupAID(ICConstants.KEYMASTER_AID, (byte)0, (byte)ICConstants.KEYMASTER_AID.length);
+			if(keymasterAID == null) {
+				ISOException.throwIt((short)1);;
+			}
+			
+			byte[] globalArgsArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)1024);
+			Util.arrayCopyNonAtomic(argsBuff, challengeOffset, globalArgsArray, challengeOffset, challengeLen);
+			Util.arrayCopyNonAtomic(argsBuff, appIdOffset, globalArgsArray, appIdOffset, appIdLen);
+			Util.arrayCopyNonAtomic(argsBuff, nowMsOffset, globalArgsArray, nowMsOffset, nowMsLen);
+			Util.arrayCopyNonAtomic(argsBuff, expireTimeOffset, globalArgsArray, expireTimeOffset, expireTimeLen);
+			Util.arrayCopyNonAtomic(argsBuff, attestKeyOffset, globalArgsArray, attestKeyOffset, attestKeyLen);
+			Util.arrayCopyNonAtomic(argsBuff, attestCertIssuerOffset, globalArgsArray, attestCertIssuerOffset, attestCertIssuerLen);
+			Util.arrayCopyNonAtomic(scratchPad, pubKeyOffset, globalArgsArray, (short)(attestCertIssuerOffset + attestCertIssuerLen), pubKeyLen);
+			Shareable sharable = JCSystem.getAppletShareableInterfaceObject(keymasterAID, (byte)1);
+			
+	        certLen = ((KMAppletBridge)sharable).createAttestationForEcPublicKey(isTestCredential,
+	        			globalArgsArray, (short)(attestCertIssuerOffset + attestCertIssuerLen), pubKeyLen,
+	        			appIdOffset, appIdLen,
+	        			challengeOffset, challengeLen,
+	        			nowMsOffset, (short)ICConstants.LONG_SIZE,
+	        			expireTimeOffset, (short)ICConstants.LONG_SIZE,
+	        			attestKeyOffset, attestKeyLen,
+	        			attestCertIssuerOffset, attestCertIssuerLen,
+	        			globalArgsArray, (short)0);
+	        Util.arrayCopyNonAtomic(globalArgsArray, (short)0, scratchPad, scratchPadOffset, certLen);
+    	} finally {
+    		JCSystem.requestObjectDeletion();
+    	}
+        return certLen;
     }
     
     short getCredentialEcKey(byte[] credentialEcKey, short start) {
@@ -368,44 +379,47 @@ public class CryptoManager {
     		short parametersVerifiedOffset, short parametersVerifiedLen,
     		short verificationTokensecurityLevelOffset, short verificationTokensecurityLevelLen,
     		short verificationTokenMacOffset, short verificationTokenMacLen) {
-    	
-    	AID keymasterAID = JCSystem.lookupAID(ICConstants.KEYMASTER_AID, (byte)0, (byte)ICConstants.KEYMASTER_AID.length);
-		if(keymasterAID == null) {
-			ISOException.throwIt((short)1);;
-		}
-		short argsLen = (short) (challengeLen + secureUserIdLen + authenticatorIdLen
-								+ hardwareAuthenticatorTypeLen + timeStampLen + macLen
-								+ verificationTokenChallengeLen + verificationTokenTimeStampLen
-								+ parametersVerifiedLen + verificationTokensecurityLevelLen + verificationTokenMacLen);
-		byte[] globalArgsArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, argsLen);
-		byte[] scratchPad = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)256);
-		Util.arrayCopyNonAtomic(argsBuff, challengeOffset, globalArgsArray, challengeOffset, challengeLen);
-		Util.arrayCopyNonAtomic(argsBuff, secureUserIdOffset, globalArgsArray, secureUserIdOffset, secureUserIdLen);
-		Util.arrayCopyNonAtomic(argsBuff, authenticatorIdOffset, globalArgsArray, authenticatorIdOffset, authenticatorIdLen);
-		Util.arrayCopyNonAtomic(argsBuff, hardwareAuthenticatorTypeOffset, globalArgsArray, hardwareAuthenticatorTypeOffset, hardwareAuthenticatorTypeLen);
-		Util.arrayCopyNonAtomic(argsBuff, timeStampOffset, globalArgsArray, timeStampOffset, timeStampLen);
-		Util.arrayCopyNonAtomic(argsBuff, macOffset, globalArgsArray, macOffset, macLen);
-		Util.arrayCopyNonAtomic(argsBuff, verificationTokenChallengeOffset, globalArgsArray, verificationTokenChallengeOffset, verificationTokenChallengeLen);
-		Util.arrayCopyNonAtomic(argsBuff, verificationTokenTimeStampOffset, globalArgsArray, verificationTokenTimeStampOffset, verificationTokenTimeStampLen);
-		Util.arrayCopyNonAtomic(argsBuff, parametersVerifiedOffset, globalArgsArray, parametersVerifiedOffset, parametersVerifiedLen);
-		Util.arrayCopyNonAtomic(argsBuff, verificationTokensecurityLevelOffset, globalArgsArray, verificationTokensecurityLevelOffset, verificationTokensecurityLevelLen);
-		Util.arrayCopyNonAtomic(argsBuff, verificationTokenMacOffset, globalArgsArray, verificationTokenMacOffset, verificationTokenMacLen);
-		Shareable sharable = JCSystem.getAppletShareableInterfaceObject(keymasterAID, (byte)1);
-        boolean isVerified = ((KMAppletBridge)sharable).validateAuthTokensExt(
-        			globalArgsArray,
-            		challengeOffset, challengeLen,
-            		secureUserIdOffset, secureUserIdLen,
-            		authenticatorIdOffset, authenticatorIdLen,
-            		hardwareAuthenticatorTypeOffset, hardwareAuthenticatorTypeLen,
-            		timeStampOffset, timeStampLen,
-            		macOffset, macLen,
-            		verificationTokenChallengeOffset, verificationTokenChallengeLen,
-            		verificationTokenTimeStampOffset, verificationTokenTimeStampLen,
-            		parametersVerifiedOffset, parametersVerifiedLen,
-            		verificationTokensecurityLevelOffset, verificationTokensecurityLevelLen,
-            		verificationTokenMacOffset, verificationTokenMacLen,
-        			scratchPad);
-        JCSystem.requestObjectDeletion();
+    	boolean isVerified = false;
+    	try {
+	    	AID keymasterAID = JCSystem.lookupAID(ICConstants.KEYMASTER_AID, (byte)0, (byte)ICConstants.KEYMASTER_AID.length);
+			if(keymasterAID == null) {
+				ISOException.throwIt((short)1);;
+			}
+			short argsLen = (short) (challengeLen + secureUserIdLen + authenticatorIdLen
+									+ hardwareAuthenticatorTypeLen + timeStampLen + macLen
+									+ verificationTokenChallengeLen + verificationTokenTimeStampLen
+									+ parametersVerifiedLen + verificationTokensecurityLevelLen + verificationTokenMacLen);
+			byte[] globalArgsArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, argsLen);
+			byte[] scratchPad = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)256);
+			Util.arrayCopyNonAtomic(argsBuff, challengeOffset, globalArgsArray, challengeOffset, challengeLen);
+			Util.arrayCopyNonAtomic(argsBuff, secureUserIdOffset, globalArgsArray, secureUserIdOffset, secureUserIdLen);
+			Util.arrayCopyNonAtomic(argsBuff, authenticatorIdOffset, globalArgsArray, authenticatorIdOffset, authenticatorIdLen);
+			Util.arrayCopyNonAtomic(argsBuff, hardwareAuthenticatorTypeOffset, globalArgsArray, hardwareAuthenticatorTypeOffset, hardwareAuthenticatorTypeLen);
+			Util.arrayCopyNonAtomic(argsBuff, timeStampOffset, globalArgsArray, timeStampOffset, timeStampLen);
+			Util.arrayCopyNonAtomic(argsBuff, macOffset, globalArgsArray, macOffset, macLen);
+			Util.arrayCopyNonAtomic(argsBuff, verificationTokenChallengeOffset, globalArgsArray, verificationTokenChallengeOffset, verificationTokenChallengeLen);
+			Util.arrayCopyNonAtomic(argsBuff, verificationTokenTimeStampOffset, globalArgsArray, verificationTokenTimeStampOffset, verificationTokenTimeStampLen);
+			Util.arrayCopyNonAtomic(argsBuff, parametersVerifiedOffset, globalArgsArray, parametersVerifiedOffset, parametersVerifiedLen);
+			Util.arrayCopyNonAtomic(argsBuff, verificationTokensecurityLevelOffset, globalArgsArray, verificationTokensecurityLevelOffset, verificationTokensecurityLevelLen);
+			Util.arrayCopyNonAtomic(argsBuff, verificationTokenMacOffset, globalArgsArray, verificationTokenMacOffset, verificationTokenMacLen);
+			Shareable sharable = JCSystem.getAppletShareableInterfaceObject(keymasterAID, (byte)1);
+	        isVerified = ((KMAppletBridge)sharable).validateAuthTokensExt(
+	        			globalArgsArray,
+	            		challengeOffset, challengeLen,
+	            		secureUserIdOffset, secureUserIdLen,
+	            		authenticatorIdOffset, authenticatorIdLen,
+	            		hardwareAuthenticatorTypeOffset, hardwareAuthenticatorTypeLen,
+	            		timeStampOffset, timeStampLen,
+	            		macOffset, macLen,
+	            		verificationTokenChallengeOffset, verificationTokenChallengeLen,
+	            		verificationTokenTimeStampOffset, verificationTokenTimeStampLen,
+	            		parametersVerifiedOffset, parametersVerifiedLen,
+	            		verificationTokensecurityLevelOffset, verificationTokensecurityLevelLen,
+	            		verificationTokenMacOffset, verificationTokenMacLen,
+	        			scratchPad);
+	    } finally {
+	        JCSystem.requestObjectDeletion();
+	    }
         return isVerified;
     }
 
@@ -417,47 +431,52 @@ public class CryptoManager {
 												byte[] proofOfBinding, short pobOffset, short pobLen,
 												byte[] timeBuffer, short timeOffset,
 												byte[] pubCertOut, short pubCertOutOffset) {
-		Util.arrayCopyNonAtomic(X509_CERT_BASE, (short)0, pubCertOut, pubCertOutOffset, (short)X509_CERT_BASE.length);
-		
-		AID keymasterAID = JCSystem.lookupAID(ICConstants.KEYMASTER_AID, (byte)0, (byte)ICConstants.KEYMASTER_AID.length);
-		if(keymasterAID == null) {
-			ISOException.throwIt((short)1);;
+		short retLen = (short)0;
+		try {
+			Util.arrayCopyNonAtomic(X509_CERT_BASE, (short)0, pubCertOut, pubCertOutOffset, (short)X509_CERT_BASE.length);
+			
+			AID keymasterAID = JCSystem.lookupAID(ICConstants.KEYMASTER_AID, (byte)0, (byte)ICConstants.KEYMASTER_AID.length);
+			if(keymasterAID == null) {
+				ISOException.throwIt((short)1);;
+			}
+			//Not before date time
+			byte[] globalOutArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)257);
+			Util.arrayCopyNonAtomic(timeBuffer, timeOffset, globalOutArray, (short)0, LONG_SIZE);
+			Shareable sharable = JCSystem.getAppletShareableInterfaceObject(keymasterAID, (byte)1);
+	        short dateLen = ((KMAppletBridge)sharable).convertDate(globalOutArray, (short)0,
+	        													globalOutArray, (short)0);
+	        if(dateLen != (short)13) {
+	        	ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+	        }
+	        Util.arrayCopyNonAtomic(globalOutArray, (short)0, pubCertOut, (short)(pubCertOutOffset + X509_CERT_POS_VALID_NOT_BEFORE), dateLen);
+	    	//Not after
+	        ICUtil.incrementByteArray(timeBuffer, timeOffset, LONG_SIZE, ICConstants.ONE_YEAR_MS, (short)0, (byte)ICConstants.ONE_YEAR_MS.length);
+	        Util.arrayCopyNonAtomic(timeBuffer, timeOffset, globalOutArray, (short)0, LONG_SIZE);
+			dateLen = ((KMAppletBridge)sharable).convertDate(globalOutArray, (short)0,
+					globalOutArray, (short)0);
+			if(dateLen != (short)13) {
+	        	ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
+	        }
+	        Util.arrayCopyNonAtomic(globalOutArray, (short)0, pubCertOut, (short)(pubCertOutOffset + X509_CERT_POS_VALID_NOT_AFTER), dateLen);
+			
+			//Set public key length
+			pubCertOut[(short) (pubCertOutOffset + X509_CERT_BASE.length - 2)] = (byte)(pubKeyLen + 1);
+			Util.arrayCopyNonAtomic(pubKey, pubKeyOffset, pubCertOut, (short)(pubCertOutOffset + X509_CERT_BASE.length), pubKeyLen);
+			Util.arrayCopyNonAtomic(X509_DER_POB, (short)0, pubCertOut, (short)(pubCertOutOffset + X509_CERT_BASE.length + pubKeyLen), (short)X509_DER_POB.length);
+	
+			Util.arrayCopyNonAtomic(proofOfBinding, pobOffset, pubCertOut, (short)(pubCertOutOffset + X509_CERT_BASE.length + pubKeyLen + X509_DER_POB.length), pobLen);
+			short tbsCertLen = (short)(X509_CERT_BASE.length + pubKeyLen + X509_DER_POB.length + pobLen -  X509_CERT_POS_TOTAL_LEN - SHORT_SIZE);
+			Util.arrayCopyNonAtomic(X509_DER_SIGNATURE, (short)0, pubCertOut, (short)(pubCertOutOffset + X509_CERT_POS_TOTAL_LEN + SHORT_SIZE + tbsCertLen), (short)(X509_DER_SIGNATURE.length));
+	
+			short signLen = ecSignWithSHA256Digest(pubCertOut, (short)(pubCertOutOffset + X509_CERT_POS_TOTAL_LEN + SHORT_SIZE), tbsCertLen, pubCertOut, (short)(pubCertOutOffset + X509_CERT_POS_TOTAL_LEN + SHORT_SIZE + tbsCertLen + X509_DER_SIGNATURE.length));
+			pubCertOut[(short) (pubCertOutOffset + X509_CERT_POS_TOTAL_LEN + SHORT_SIZE + tbsCertLen + X509_DER_SIGNATURE.length - 2)] = (byte)(signLen + 1);
+			Util.setShort(pubCertOut, (short) (pubCertOutOffset + X509_CERT_POS_TOTAL_LEN), (short)(tbsCertLen + X509_DER_SIGNATURE.length + signLen));
+			
+			retLen = (short)(X509_CERT_POS_TOTAL_LEN + SHORT_SIZE + tbsCertLen + X509_DER_SIGNATURE.length + signLen);
+		} finally {
+			JCSystem.requestObjectDeletion();
 		}
-		//Not before date time
-		byte[] globalOutArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)257);
-		Util.arrayCopyNonAtomic(timeBuffer, timeOffset, globalOutArray, (short)0, LONG_SIZE);
-		Shareable sharable = JCSystem.getAppletShareableInterfaceObject(keymasterAID, (byte)1);
-        short dateLen = ((KMAppletBridge)sharable).convertDate(globalOutArray, (short)0,
-        													globalOutArray, (short)0);
-        if(dateLen != (short)13) {
-        	ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-        }
-        Util.arrayCopyNonAtomic(globalOutArray, (short)0, pubCertOut, (short)(pubCertOutOffset + X509_CERT_POS_VALID_NOT_BEFORE), dateLen);
-    	//Not after
-        ICUtil.incrementByteArray(timeBuffer, timeOffset, LONG_SIZE, ICConstants.ONE_YEAR_MS, (short)0, (byte)ICConstants.ONE_YEAR_MS.length);
-        Util.arrayCopyNonAtomic(timeBuffer, timeOffset, globalOutArray, (short)0, LONG_SIZE);
-		dateLen = ((KMAppletBridge)sharable).convertDate(globalOutArray, (short)0,
-				globalOutArray, (short)0);
-		if(dateLen != (short)13) {
-        	ISOException.throwIt(ISO7816.SW_WRONG_LENGTH);
-        }
-        Util.arrayCopyNonAtomic(globalOutArray, (short)0, pubCertOut, (short)(pubCertOutOffset + X509_CERT_POS_VALID_NOT_AFTER), dateLen);
-		JCSystem.requestObjectDeletion();
-
-		//Set public key length
-		pubCertOut[(short) (pubCertOutOffset + X509_CERT_BASE.length - 2)] = (byte)(pubKeyLen + 1);
-		Util.arrayCopyNonAtomic(pubKey, pubKeyOffset, pubCertOut, (short)(pubCertOutOffset + X509_CERT_BASE.length), pubKeyLen);
-		Util.arrayCopyNonAtomic(X509_DER_POB, (short)0, pubCertOut, (short)(pubCertOutOffset + X509_CERT_BASE.length + pubKeyLen), (short)X509_DER_POB.length);
-
-		Util.arrayCopyNonAtomic(proofOfBinding, pobOffset, pubCertOut, (short)(pubCertOutOffset + X509_CERT_BASE.length + pubKeyLen + X509_DER_POB.length), pobLen);
-		short tbsCertLen = (short)(X509_CERT_BASE.length + pubKeyLen + X509_DER_POB.length + pobLen -  X509_CERT_POS_TOTAL_LEN - SHORT_SIZE);
-		Util.arrayCopyNonAtomic(X509_DER_SIGNATURE, (short)0, pubCertOut, (short)(pubCertOutOffset + X509_CERT_POS_TOTAL_LEN + SHORT_SIZE + tbsCertLen), (short)(X509_DER_SIGNATURE.length));
-
-		short signLen = ecSignWithSHA256Digest(pubCertOut, (short)(pubCertOutOffset + X509_CERT_POS_TOTAL_LEN + SHORT_SIZE), tbsCertLen, pubCertOut, (short)(pubCertOutOffset + X509_CERT_POS_TOTAL_LEN + SHORT_SIZE + tbsCertLen + X509_DER_SIGNATURE.length));
-		pubCertOut[(short) (pubCertOutOffset + X509_CERT_POS_TOTAL_LEN + SHORT_SIZE + tbsCertLen + X509_DER_SIGNATURE.length - 2)] = (byte)(signLen + 1);
-		Util.setShort(pubCertOut, (short) (pubCertOutOffset + X509_CERT_POS_TOTAL_LEN), (short)(tbsCertLen + X509_DER_SIGNATURE.length + signLen));
-
-		return (short)(X509_CERT_POS_TOTAL_LEN + SHORT_SIZE + tbsCertLen + X509_DER_SIGNATURE.length + signLen);
+		return retLen;
 	}
 
 }

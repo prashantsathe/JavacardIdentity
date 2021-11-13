@@ -55,20 +55,20 @@ final class JCICPresentation {
 	// These are bitmasks indicating which of the possible 32 access control profiles are
 	// authorized. They are built up by eicPresentationValidateAccessControlProfile().
 	//
-	private final byte mAccessControlProfileMaskValidatedOffset = (byte) 0;
-	private final byte mAccessControlProfileMaskUsesReaderAuthOffset = (byte)(mAccessControlProfileMaskValidatedOffset + INT_SIZE);
-	private final byte mAccessControlProfileMaskFailedReaderAuthOffset = (byte)(mAccessControlProfileMaskUsesReaderAuthOffset + INT_SIZE);
-	private final byte mAccessControlProfileMaskFailedUserAuthOffset = (byte)(mAccessControlProfileMaskFailedReaderAuthOffset + INT_SIZE);
+	private static final byte mAccessControlProfileMaskValidatedOffset = (byte) 0;
+	private static final byte mAccessControlProfileMaskUsesReaderAuthOffset = (byte)(mAccessControlProfileMaskValidatedOffset + INT_SIZE);
+	private static final byte mAccessControlProfileMaskFailedReaderAuthOffset = (byte)(mAccessControlProfileMaskUsesReaderAuthOffset + INT_SIZE);
+	private static final byte mAccessControlProfileMaskFailedUserAuthOffset = (byte)(mAccessControlProfileMaskFailedReaderAuthOffset + INT_SIZE);
 	private final byte[] mAcpMasksInts;
 
 	// Set by eicPresentationSetAuthToken() and contains the fields
 	// from the passed in authToken and verificationToken.
 	//
 	//byte mAuthChallengeOffset = (byte) 0;
-	byte mAuthTokenChallengeOffset = (byte)0;// (mAuthChallengeOffset + LONG_SIZE);
-	byte mAuthTokenSecureUserIdOffset = (byte)(mAuthTokenChallengeOffset + LONG_SIZE);
-	byte mAuthTokenTimestampOffset = (byte)(mAuthTokenSecureUserIdOffset + LONG_SIZE);
-	byte mVerificationTokenTimestampOffset = (byte)(mAuthTokenTimestampOffset + LONG_SIZE);
+	private static final byte mAuthTokenChallengeOffset = (byte)0;// (mAuthChallengeOffset + LONG_SIZE);
+	private static final byte mAuthTokenSecureUserIdOffset = (byte)(mAuthTokenChallengeOffset + LONG_SIZE);
+	private static final byte mAuthTokenTimestampOffset = (byte)(mAuthTokenSecureUserIdOffset + LONG_SIZE);
+	private static final byte mVerificationTokenTimestampOffset = (byte)(mAuthTokenTimestampOffset + LONG_SIZE);
 	private final byte[] mAuthAndVerificationTokensLongs;
 
 	private final byte[] mIntExpectedCborSizeAtEnd;

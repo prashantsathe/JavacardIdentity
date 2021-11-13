@@ -1,8 +1,8 @@
 package com.android.se.ready;
 
-import com.android.javacard.keymaster.KMSEProvider;
-import com.android.javacard.keymaster.KMType;
-import com.android.javacard.keymaster.KMOperation;
+import com.android.javacard.seprovider.KMOperation;
+import com.android.javacard.seprovider.KMSEProvider;
+import com.android.javacard.seprovider.KMType;
 
 import javacard.framework.AID;
 import javacard.framework.ISO7816;
@@ -56,7 +56,6 @@ final class CryptoProviderImpl implements ICryptoProvider{
 	}
 
 	private KMSEProvider getSEProvider() {
-		//if(true)return null;
 		AID keymasterAID = JCSystem.lookupAID(ICConstants.KEYMASTER_AID, (byte)0, (byte)ICConstants.KEYMASTER_AID.length);
 		if(keymasterAID == null) {
 			return null;
@@ -70,18 +69,21 @@ final class CryptoProviderImpl implements ICryptoProvider{
 			byte[] pubModBuf, short pubModStart, short pubModMaxLength, short[] lengths) {
 		KMSEProvider seProvider = getSEProvider();
 		if(seProvider != null) {
-			short privKeyOffset = (byte)0;
-			short pubKeyOffset = ICConstants.EC_KEY_SIZE;
-			byte[] tempGlobalByteArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(privKeyMaxLength + pubModMaxLength));
-			short[] tempGlobalShortArray = (short[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_SHORT, (short)lengths.length);
-			seProvider.createAsymmetricKey(KMType.EC, tempGlobalByteArray, privKeyOffset, ICConstants.EC_KEY_SIZE,
-					tempGlobalByteArray, pubKeyOffset, (byte)65, tempGlobalShortArray);
-
-			Util.arrayCopyNonAtomic(tempGlobalByteArray, privKeyOffset, privKeyBuf, privKeyStart, tempGlobalShortArray[0]);
-			Util.arrayCopyNonAtomic(tempGlobalByteArray, pubKeyOffset, pubModBuf, pubModStart, tempGlobalShortArray[1]);
-			lengths[0] = tempGlobalShortArray[0];
-			lengths[1] = tempGlobalShortArray[1];
-			JCSystem.requestObjectDeletion();
+			try {
+				short privKeyOffset = (byte)0;
+				short pubKeyOffset = ICConstants.EC_KEY_SIZE;
+				byte[] tempGlobalByteArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(privKeyMaxLength + pubModMaxLength));
+				short[] tempGlobalShortArray = (short[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_SHORT, (short)lengths.length);
+				seProvider.createAsymmetricKey(KMType.EC, tempGlobalByteArray, privKeyOffset, ICConstants.EC_KEY_SIZE,
+						tempGlobalByteArray, pubKeyOffset, (byte)65, tempGlobalShortArray);
+	
+				Util.arrayCopyNonAtomic(tempGlobalByteArray, privKeyOffset, privKeyBuf, privKeyStart, tempGlobalShortArray[0]);
+				Util.arrayCopyNonAtomic(tempGlobalByteArray, pubKeyOffset, pubModBuf, pubModStart, tempGlobalShortArray[1]);
+				lengths[0] = tempGlobalShortArray[0];
+				lengths[1] = tempGlobalShortArray[1];
+			} finally {
+				JCSystem.requestObjectDeletion();
+			}
 		} else {
 			ecKeyPair.genKeyPair();
 			ECPrivateKey privKey = (ECPrivateKey) ecKeyPair.getPrivate();
@@ -126,7 +128,7 @@ final class CryptoProviderImpl implements ICryptoProvider{
 			byte[] authData, short authDataStart, short authDataLen,
 			byte[] authTag, short authTagStart, short authTagLen) {
 
-		KMSEProvider seProvider = getSEProvider();
+		//KMSEProvider seProvider = getSEProvider();
 		/*//if(seProvider != null) {
 			byte[] tempGlobalByteArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(aesKeyLen + dataLen + dataLen + nonceLen + authDataLen + authTagLen));
 			short aesKeyOffset = (byte)0;
@@ -165,7 +167,7 @@ final class CryptoProviderImpl implements ICryptoProvider{
 			byte[] nonce, short nonceStart, short nonceLen,
 			byte[] authData, short authDataStart, short authDataLen,
 			byte[] authTag, short authTagStart, short authTagLen) {
-		KMSEProvider seProvider = getSEProvider();
+		//KMSEProvider seProvider = getSEProvider();
 		/*//if(seProvider != null) {
 			byte[] tempGlobalByteArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(aesKeyLen + dataLen + dataLen + nonceLen + authDataLen + authTagLen));
 			short aesKeyOffset = (byte)0;
@@ -203,21 +205,25 @@ final class CryptoProviderImpl implements ICryptoProvider{
 										byte[] outSign, short outSignStart) {
 		KMSEProvider seProvider = getSEProvider();
 		if(seProvider != null) {
-			byte[] tempGlobalByteArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(privKeyLength + dataLength + (short)72));
-			short privKeyOffset = (byte)0;
-			short dataOffset = (short)(privKeyOffset + privKeyLength);
-			short outSignOffset = (short)(dataOffset + dataLength);
-			Util.arrayCopyNonAtomic(privKeyBuf, privKeyStart, tempGlobalByteArray, privKeyOffset, privKeyLength);
-			Util.arrayCopyNonAtomic(data, dataStart, tempGlobalByteArray, dataOffset, dataLength);
-
-			KMOperation signer = getSEProvider().initAsymmetricOperation(KMType.SIGN, KMType.EC,  KMType.PADDING_NONE , KMType.SHA2_256,
-					tempGlobalByteArray, privKeyOffset, privKeyLength, //Private key
-					tempGlobalByteArray, (short)0, (short)0); //Public key
-			short signLen = signer.sign(tempGlobalByteArray, dataOffset, dataLength, tempGlobalByteArray, outSignOffset);
-
-			Util.arrayCopyNonAtomic(tempGlobalByteArray, outSignOffset, outSign, outSignStart, signLen);
-			JCSystem.requestObjectDeletion();
-			getSEProvider().releaseAllOperations();
+			short signLen = (short)0;
+			try {
+				byte[] tempGlobalByteArray = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(privKeyLength + dataLength + (short)72));
+				short privKeyOffset = (byte)0;
+				short dataOffset = (short)(privKeyOffset + privKeyLength);
+				short outSignOffset = (short)(dataOffset + dataLength);
+				Util.arrayCopyNonAtomic(privKeyBuf, privKeyStart, tempGlobalByteArray, privKeyOffset, privKeyLength);
+				Util.arrayCopyNonAtomic(data, dataStart, tempGlobalByteArray, dataOffset, dataLength);
+				KMOperation signer = getSEProvider().initAsymmetricOperation(KMType.SIGN, KMType.EC,  KMType.PADDING_NONE , KMType.SHA2_256,
+						KMType.DIGEST_NONE, /* No MGF1 Digest */
+						tempGlobalByteArray, privKeyOffset, privKeyLength, //Private key
+						tempGlobalByteArray, (short)0, (short)0); //Public key
+				signLen = signer.sign(tempGlobalByteArray, dataOffset, dataLength, tempGlobalByteArray, outSignOffset);
+	
+				Util.arrayCopyNonAtomic(tempGlobalByteArray, outSignOffset, outSign, outSignStart, signLen);
+			} finally {
+				JCSystem.requestObjectDeletion();
+				getSEProvider().releaseAllOperations();
+			}
 			return signLen;
 		} else {
 			ECPrivateKey key = (ECPrivateKey) ecKeyPair.getPrivate();

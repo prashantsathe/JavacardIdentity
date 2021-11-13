@@ -285,8 +285,12 @@ final class JCICProvisioning {
         short expireTimeOffset = (short)(nowMsOffset + LONG_SIZE);
         intSize = mCBORDecoder.getIntegerSize();
         ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(expireTimeOffset + LONG_SIZE - intSize));
-        short freeOffset = (short)(expireTimeOffset + LONG_SIZE);
-
+        short attestKeyOffset = (short)(expireTimeOffset + LONG_SIZE);
+        short attestKeyLen = mCBORDecoder.readByteString(tempBuffer, attestKeyOffset);
+        short attestCertIssuerOffset = (short)(attestKeyOffset + attestKeyLen);
+        short attestCertIssuerLen = mCBORDecoder.readByteString(tempBuffer, attestCertIssuerOffset);
+        short freeOffset = (short)(attestCertIssuerOffset + attestCertIssuerLen);
+        
         short result = (short)0;
         short certLen = (short)0;
 		try {
@@ -295,6 +299,8 @@ final class JCICProvisioning {
         		appIdOffset, appIdLen,
         		nowMsOffset, LONG_SIZE,
         		expireTimeOffset, LONG_SIZE,
+        		attestKeyOffset, attestKeyLen,
+        		attestCertIssuerOffset, attestCertIssuerLen,
         		tempBuffer, freeOffset);
 		} catch (ISOException e) {
 			result = e.getReason();

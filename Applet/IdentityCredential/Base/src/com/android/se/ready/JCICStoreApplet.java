@@ -9,6 +9,8 @@ import javacard.framework.Shareable;
 import javacard.framework.Util;
 import javacardx.apdu.ExtendedLength;
 
+import static com.android.se.ready.ICConstants.LONG_SIZE;
+
 import com.android.javacard.keymaster.*;
 
 public class JCICStoreApplet extends Applet implements ExtendedLength {
@@ -227,25 +229,50 @@ public class JCICStoreApplet extends Applet implements ExtendedLength {
     }
     
     private void processGetAttestCertChain() {
-    	//We will take byte array of double size of temp buffer size which is required to copy cert chain
-		byte[] globalTempBuffer = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(ICConstants.TEMP_BUFFER_SIZE + ICConstants.TEMP_BUFFER_SIZE));
-    	AID keymasterAID = JCSystem.lookupAID(ICConstants.KEYMASTER_AID, (byte)0, (byte)ICConstants.KEYMASTER_AID.length);
-		if(keymasterAID == null) {
-			ISOException.throwIt((short)1);;
-		}
-		Shareable sharable = JCSystem.getAppletShareableInterfaceObject(keymasterAID, (byte)1);
-        
-    	short certChainLen = ((KMAppletBridge) sharable).getCertChainExt(globalTempBuffer, (short)0);
+    	mAPDUManager.receiveAll();
+        byte[] receiveBuffer = mAPDUManager.getReceiveBuffer();
+        short receivingDataOffset = mAPDUManager.getOffsetIncomingData();
+        short receivingDataLength = mAPDUManager.getReceivingLength();
+		byte[] tempBuffer = JCICStoreApplet.getTempByteBlob().getBuffer();
+		short tempBufferOffset = JCICStoreApplet.getTempByteBlob().getStartOff();
 
-    	mAPDUManager.setOutgoing();
-        byte[] outBuffer = mAPDUManager.getSendBuffer();
-        short le = mAPDUManager.getOutbufferLength();
-        mCBOREncoder.init(outBuffer, (short) 0, le);
-        mCBOREncoder.startArray((short)2);
-        mCBOREncoder.encodeUInt8((byte)0); //Success
-        mCBOREncoder.startArray((short)1);
-        mCBOREncoder.encodeRawData(globalTempBuffer, (short)0, certChainLen);
-        mAPDUManager.setOutgoingLength(mCBOREncoder.getCurrentOffset());
-		JCSystem.requestObjectDeletion();
+        mCBORDecoder.init(receiveBuffer, receivingDataOffset, receivingDataLength);
+        mCBORDecoder.readMajorType(CBORBase.TYPE_ARRAY);
+        short nowMsOffset = (short)tempBufferOffset;
+        short intSize = mCBORDecoder.getIntegerSize();
+        ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(nowMsOffset + LONG_SIZE - intSize));
+        short expireTimeOffset = (short)(nowMsOffset + LONG_SIZE);
+        intSize = mCBORDecoder.getIntegerSize();
+        ICUtil.readUInt(mCBORDecoder, tempBuffer, (short)(expireTimeOffset + LONG_SIZE - intSize));
+    	try {
+	    	//We will take byte array of double size of temp buffer size which is required to copy cert chain
+			byte[] globalTempBuffer = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(1024));
+	    	AID keymasterAID = JCSystem.lookupAID(ICConstants.KEYMASTER_AID, (byte)0, (byte)ICConstants.KEYMASTER_AID.length);
+			if(keymasterAID == null) {
+				ISOException.throwIt((short)1);;
+			}
+			Shareable shareable = JCSystem.getAppletShareableInterfaceObject(keymasterAID, (byte)1);
+			byte[] argsBuffer = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short) (LONG_SIZE + LONG_SIZE));
+	    	Util.arrayCopyNonAtomic(tempBuffer, nowMsOffset, argsBuffer, nowMsOffset, LONG_SIZE);
+			Util.arrayCopyNonAtomic(tempBuffer, expireTimeOffset, argsBuffer, expireTimeOffset, LONG_SIZE);
+			
+	    	byte[] globalScratchPad = (byte[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_BYTE, (short)(256));
+			short[] outLengths = (short[])JCSystem.makeGlobalArray(JCSystem.ARRAY_TYPE_SHORT, (short)(2));
+			short outBlobOffset = (short)0;
+			((KMAppletBridge) shareable).getAttestCertChainAndKey(argsBuffer, (short)0, LONG_SIZE, globalTempBuffer, outBlobOffset, (short)globalTempBuffer.length, outLengths, globalScratchPad);
+	    	
+	    	mAPDUManager.setOutgoing();
+	        byte[] outBuffer = mAPDUManager.getSendBuffer();
+	        short le = mAPDUManager.getOutbufferLength();
+	        mCBOREncoder.init(outBuffer, (short) 0, le);
+	        mCBOREncoder.startArray((short)2);
+	        mCBOREncoder.encodeUInt8((byte)0); //Success
+	        mCBOREncoder.startArray((short)2);
+	        mCBOREncoder.encodeByteString(globalTempBuffer, outBlobOffset, outLengths[(short)0]);
+	        mCBOREncoder.encodeByteString(globalTempBuffer, (short)(outBlobOffset + outLengths[(short)0]), outLengths[(short)1]);
+	        mAPDUManager.setOutgoingLength(mCBOREncoder.getCurrentOffset());
+    	} finally {
+    		JCSystem.requestObjectDeletion();
+    	}
     }
 }
