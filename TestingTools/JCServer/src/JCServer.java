@@ -10,7 +10,7 @@ import com.sun.javacard.apduio.CadTransportException;
  * @author www.codejava.net
  */
 public class JCServer {
-  private static final String JCOP_PROVIDER = "jcop";
+  private static final String JCOP_PROVIDER = "jcop_keymaster";
   private static final String JCOP_IDENTITY = "jcop_identity";
 
   public static void main(String[] args) {
@@ -35,11 +35,11 @@ public class JCServer {
         System.out.println("Both keymaster and identity credential AppletAIDs, PackageAIDs and cap file paths are expected as arguments for JCOP Identity Credential.");
         return;
       }
-      simulator = new JCOPSimulator(args[2], args[3], args[4]);
+      //simulator = new JCOPSimulator(args[2], args[3], args[4]);
+      simulator = new JCOPSimulator(args[2], args[3], args[4], args[5], args[6], args[7]);
       Thread kmServer = new Thread(new AppletServer("Keymaster", simulator, port));
       kmServer.start();
       //simulator = new JCOPSimulator(args[2], args[3], args[5], args[2], args[4], args[5]);
-      simulator = new JCOPSimulator(args[2], args[3], args[4], args[5], args[6], args[7]);
       Thread icServer = new Thread(new AppletServer("IdentityCredential", simulator, port + 10));
       icServer.start();
     } else {

@@ -38,12 +38,12 @@ public class JCOPSimulator implements Simulator {
         try {
           openCardSim.connect();
           if(kmCapFilePath != null && icCapFilePath != null) {
-            openCardSim.installApplet(kmCapFilePath, kmAppletId, null, kmPackageAid);
-            openCardSim.installApplet(icCapFilePath, icAppletId, null, icPackageAid);
+            //openCardSim.installApplet(kmCapFilePath, kmAppletId, null, kmPackageAid);
+            //openCardSim.installApplet(icCapFilePath, icAppletId, null, icPackageAid);
           } else {
             if (kmCapFilePath != null) {
               //In-case applets are installed from eclipse for debug purpose comment below line
-              openCardSim.installApplet(kmCapFilePath, kmAppletId, null, kmPackageAid);
+              //openCardSim.installApplet(kmCapFilePath, kmAppletId, null, kmPackageAid);
             }
             if (icCapFilePath != null) {
               //In-case applets are installed from eclipse for debug purpose comment below line
@@ -95,16 +95,16 @@ public class JCOPSimulator implements Simulator {
 
   @Override
   public byte[] executeApdu(byte[] apdu) throws Exception {
-    System.out.println("Executing APDU = " + Utils.byteArrayToHexString(apdu));
-    if (null == validateApdu(apdu)) {
-      throw new IllegalArgumentException();
-    }
-    opencard.core.terminal.CommandAPDU cmdApdu = new opencard.core.terminal.CommandAPDU(apdu);
     synchronized (openCardSim) {
+      System.out.println("Executing APDU = " + Utils.byteArrayToHexString(apdu));
+      if (null == validateApdu(apdu)) {
+        throw new IllegalArgumentException();
+      }
+      opencard.core.terminal.CommandAPDU cmdApdu = new opencard.core.terminal.CommandAPDU(apdu);
       response = openCardSim.transmitCommand(cmdApdu);
-    }
-    if(response.sw() != 36864) {
-      System.out.println("Response = " + Utils.byteArrayToHexString(response.getBytes()));
+      if(response.sw() != 36864) {
+        System.out.println("Response = " + Utils.byteArrayToHexString(response.getBytes()));
+      }
     }
     return intToByteArray(response.sw());
   }
