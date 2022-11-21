@@ -253,7 +253,7 @@ bool JCSecureHardwareProvisioningProxy::initialize(bool testCredential) {
 }
 
 bool JCSecureHardwareProvisioningProxy::initializeForUpdate(
-        bool testCredential, string docType, vector<uint8_t> encryptedCredentialKeys) {
+        bool testCredential, const string& docType, const vector<uint8_t>& encryptedCredentialKeys) {
     LOG(INFO) << "JCSecureHardwareProvisioningProxy initializeForUpdate called";
     cppbor::Array pArray;
     pArray.add(testCredential)
@@ -307,10 +307,10 @@ bool JCSecureHardwareProvisioningProxy::initializeForUpdate(
 }
 
 size_t JCSecureHardwareProvisioningProxy::getHwChunkSize() {
-	if (mAppletConnection.isChannelOpen()) {
-		return mAppletConnection.getHwChunkSize();
+    if (mAppletConnection.isChannelOpen()) {
+	return mAppletConnection.getHwChunkSize();
     }
-	return 0;
+    return 0;
 }
 
 // Returns public key certificate.
@@ -422,8 +422,27 @@ optional<vector<uint8_t>> JCSecureHardwareProvisioningProxy::createCredentialKey
     return ret;
 }
 
+optional<vector<uint8_t>> JCSecureHardwareProvisioningProxy::createCredentialKeyUsingRkp(
+        const vector<uint8_t>& challenge, const vector<uint8_t>& applicationId,
+        const vector<uint8_t>& attestationKeyBlob, const vector<uint8_t>& attstationKeyCert) {
+    size_t publicKeyCertSize = 4096;
+    vector<uint8_t> publicKeyCert(publicKeyCertSize);
+#if 0
+    if (!eicProvisioningCreateCredentialKey(&ctx_, challenge.data(), challenge.size(),
+                                            applicationId.data(), applicationId.size(),
+                                            attestationKeyBlob.data(), attestationKeyBlob.size(),
+                                            attstationKeyCert.data(), attstationKeyCert.size(),
+                                            publicKeyCert.data(), &publicKeyCertSize)) {
+        LOG(ERROR) << "error creating credential key";
+        return std::nullopt;
+    }
+#endif
+    publicKeyCert.resize(publicKeyCertSize);
+    return publicKeyCert;
+}
+
 bool JCSecureHardwareProvisioningProxy::startPersonalization(
-        int accessControlProfileCount, vector<int> entryCounts, const string& docType,
+        int accessControlProfileCount, const vector<int>& entryCounts, const string& docType,
         size_t expectedProofOfProvisioningSize) {
     LOG(INFO) << "JJCSecureHardwareProvisioningProxy::startPersonalization ";
 
@@ -740,8 +759,8 @@ JCSecureHardwarePresentationProxy::~JCSecureHardwarePresentationProxy() {
     mAppletConnection.close();
 }
 
-bool JCSecureHardwarePresentationProxy::initialize(bool testCredential, string docType,
-                                                     vector<uint8_t> encryptedCredentialKeys) {
+bool JCSecureHardwarePresentationProxy::initialize(uint32_t sessionId, bool testCredential, const string& docType,
+                    const vector<uint8_t>& encryptedCredentialKeys) {
     LOG(INFO) << "JCSecureHardwarePresentationProxy created";
     if (!mAppletConnection.connectToTransportClient()) {
         return false;
@@ -801,7 +820,7 @@ size_t JCSecureHardwarePresentationProxy::getHwChunkSize() {
 
 // Returns publicKeyCert (1st component) and signingKeyBlob (2nd component)
 optional<pair<vector<uint8_t>, vector<uint8_t>>>
-JCSecureHardwarePresentationProxy::generateSigningKeyPair(string docType, time_t now) {
+JCSecureHardwarePresentationProxy::generateSigningKeyPair(const string& docType, time_t now) {
     LOG(INFO) << "JCSecureHardwarePresentationProxy generateSigningKeyPair called";
 
     cppbor::Array pArray;
@@ -1485,4 +1504,46 @@ optional<vector<uint8_t>> JCSecureHardwarePresentationProxy::proveOwnership(
     return signatureOfToBeSigned;
 }
 
+//---------------------------------
+JCSecureHardwareSessionProxy::~JCSecureHardwareSessionProxy() {
+
+}
+
+bool JCSecureHardwareSessionProxy::initialize() {
+    return true;
+}
+
+optional<uint32_t> JCSecureHardwareSessionProxy::getId() {
+    uint32_t id = 1234;
+    // TODO
+    return id;
+}
+
+bool JCSecureHardwareSessionProxy::shutdown() {
+    return true;
+}
+
+bool JCSecureHardwareSessionProxy::validateId(const string& callerName) {
+    return true;
+}
+
+optional<uint64_t> JCSecureHardwareSessionProxy::getAuthChallenge() {
+    uint64_t authChallenge = 1234;
+    return authChallenge;
+}
+
+optional<vector<uint8_t>> JCSecureHardwareSessionProxy::getEphemeralKeyPair() {
+        return std::nullopt;
+}
+
+bool JCSecureHardwareSessionProxy::setReaderEphemeralPublicKey(
+        const vector<uint8_t>& readerEphemeralPublicKey) {
+        return false;
+}
+
+bool JCSecureHardwareSessionProxy::setSessionTranscript(
+        const vector<uint8_t>& sessionTranscript) {
+        return false;
+}
+//-----------------------------------
 }  // namespace android::hardware::identity

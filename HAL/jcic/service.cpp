@@ -29,6 +29,7 @@ using ::android::base::InitLogging;
 using ::android::base::StderrLogger;
 
 using ::aidl::android::hardware::identity::IdentityCredentialStore;
+using ::aidl::android::hardware::security::keymint::IRemotelyProvisionedComponent;
 using ::android::hardware::identity::JCSecureHardwareProxyFactory;
 using ::android::hardware::identity::SecureHardwareProxyFactory;
 
@@ -36,10 +37,13 @@ int main(int /*argc*/, char* argv[]) {
     //InitLogging(argv, StderrLogger);
 
     sp<SecureHardwareProxyFactory> hwProxyFactory = new JCSecureHardwareProxyFactory();
+    const std::string remotelyProvisionedComponentName =
+            std::string(IRemotelyProvisionedComponent::descriptor) + "/default";
 
     ABinderProcess_setThreadPoolMaxThreadCount(0);
     std::shared_ptr<IdentityCredentialStore> store =
-            ndk::SharedRefBase::make<IdentityCredentialStore>(hwProxyFactory);
+            ndk::SharedRefBase::make<IdentityCredentialStore>(hwProxyFactory,
+                                                              remotelyProvisionedComponentName);
 
     const std::string instance = std::string() + IdentityCredentialStore::descriptor + "/jcic";
     binder_status_t status = AServiceManager_addService(store->asBinder().get(), instance.c_str());

@@ -79,8 +79,15 @@ ndk::ScopedAStatus WritableIdentityCredential::getAttestationCertificate(
                 IIdentityCredentialStore::STATUS_INVALID_DATA, "Challenge can not be empty"));
     }
 
-    optional<vector<uint8_t>> certChain =
-            hwProxy_->createCredentialKey(attestationChallenge, attestationApplicationId);
+    optional<vector<uint8_t>> certChain;
+    if (attestationKeyBlob_ && attestationCertificateChain_) {
+        certChain = hwProxy_->createCredentialKeyUsingRkp(
+                attestationChallenge, attestationApplicationId, *attestationKeyBlob_,
+                attestationCertificateChain_->at(0));
+    } else {
+        certChain = hwProxy_->createCredentialKey(attestationChallenge, attestationApplicationId);
+    }
+
     if (!certChain) {
         return ndk::ScopedAStatus(AStatus_fromServiceSpecificErrorWithMessage(
                 IIdentityCredentialStore::STATUS_FAILED,
@@ -95,8 +102,14 @@ ndk::ScopedAStatus WritableIdentityCredential::getAttestationCertificate(
     }
 
     *outCertificateChain = vector<Certificate>();
-    for (const vector<uint8_t>& cert : certs.value()) {
-        Certificate c = Certificate();
+    for (vector<uint8_t>& cert : certs.value()) {
+        Certificate c;
+        c.encodedCertificate = std::move(cert);
+        outCertificateChain->push_back(std::move(c));
+    }
+
+    for (const vector<uint8_t>& cert : *attestationCertificateChain_) {
+        Certificate c;
         c.encodedCertificate = cert;
         outCertificateChain->push_back(std::move(c));
     }
@@ -210,6 +223,15 @@ ndk::ScopedAStatus WritableIdentityCredential::beginAddEntry(
                 "numAccessControlProfileRemaining_ is not zero"));
     }
 
+    // Ensure passed-in profile ids reference valid access control profiles
+    for (const int32_t id : accessControlProfileIds) {
+        if (accessControlProfileIds_.find(id) == accessControlProfileIds_.end()) {
+            return ndk::ScopedAStatus(AStatus_fromServiceSpecificErrorWithMessage(
+                    IIdentityCredentialStore::STATUS_INVALID_DATA,
+                    "An id in accessControlProfileIds references non-existing ACP"));
+        }
+    }
+
     if (remainingEntryCounts_.size() == 0) {
         return ndk::ScopedAStatus(AStatus_fromServiceSpecificErrorWithMessage(
                 IIdentityCredentialStore::STATUS_INVALID_DATA, "No more namespaces to add to"));
@@ -273,11 +295,10 @@ ndk::ScopedAStatus WritableIdentityCredential::addEntryValue(const vector<uint8_
                                                              vector<uint8_t>* outEncryptedContent) {
     size_t contentSize = content.size();
 
-    if (contentSize > hwProxy_->getHwChunkSize()) {
-		LOG(ERROR) << "content size is larger than HwChunkSize " << hwProxy_->getHwChunkSize();
-		return ndk::ScopedAStatus(AStatus_fromServiceSpecificErrorWithMessage(
+    if (contentSize > IdentityCredentialStore::kGcmChunkSize) {
+        return ndk::ScopedAStatus(AStatus_fromServiceSpecificErrorWithMessage(
                 IIdentityCredentialStore::STATUS_INVALID_DATA,
-                "Passed in chunk is bigger than HwChunkSize"));
+                "Passed in chunk of is bigger than kGcmChunkSize"));
     }
     if (contentSize > entryRemainingBytes_) {
 		LOG(ERROR) << "content size is larger than entryRemainingBytes_ " << entryRemainingBytes_;
@@ -289,11 +310,10 @@ ndk::ScopedAStatus WritableIdentityCredential::addEntryValue(const vector<uint8_
     entryBytes_.insert(entryBytes_.end(), content.begin(), content.end());
     entryRemainingBytes_ -= contentSize;
     if (entryRemainingBytes_ > 0) {
-        if (contentSize != hwProxy_->getHwChunkSize()) {
-		    LOG(ERROR) << "content size is not equal to HwChunkSize " << hwProxy_->getHwChunkSize();
-		    return ndk::ScopedAStatus(AStatus_fromServiceSpecificErrorWithMessage(
+        if (contentSize != IdentityCredentialStore::kGcmChunkSize) {
+            return ndk::ScopedAStatus(AStatus_fromServiceSpecificErrorWithMessage(
                     IIdentityCredentialStore::STATUS_INVALID_DATA,
-                    "Retrieved non-final chunk which isn't HwChunkSize"));
+                    "Retrieved non-final chunk which isn't kGcmChunkSize"));
         }
     }
 
@@ -393,6 +413,38 @@ ndk::ScopedAStatus WritableIdentityCredential::finishAddingEntries(
     *outProofOfProvisioningSignature = signature.value();
     hwProxy_->shutdown();
 
+    return ndk::ScopedAStatus::ok();
+}
+
+ndk::ScopedAStatus WritableIdentityCredential::setRemotelyProvisionedAttestationKey(
+        const vector<uint8_t>& attestationKeyBlob,
+        const vector<uint8_t>& attestationCertificateChain) {
+    if (!hardwareInformation_.isRemoteKeyProvisioningSupported) {
+        return ndk::ScopedAStatus(AStatus_fromExceptionCodeWithMessage(
+                EX_UNSUPPORTED_OPERATION, "Remote key provisioning is not supported"));
+    }
+
+    if (attestationKeyBlob.empty() || attestationCertificateChain.empty()) {
+        return ndk::ScopedAStatus(AStatus_fromServiceSpecificErrorWithMessage(
+                IIdentityCredentialStore::STATUS_FAILED,
+                "Empty data passed to setRemotlyProvisionedAttestationKey"));
+    }
+
+    if (attestationKeyBlob_.has_value()) {
+        return ndk::ScopedAStatus(AStatus_fromServiceSpecificErrorWithMessage(
+                IIdentityCredentialStore::STATUS_FAILED, "Attestation key already set"));
+    }
+
+    optional<vector<vector<uint8_t>>> certs =
+            support::certificateChainSplit(attestationCertificateChain);
+    if (!certs) {
+        return ndk::ScopedAStatus(AStatus_fromServiceSpecificErrorWithMessage(
+                IIdentityCredentialStore::STATUS_FAILED,
+                "Error splitting chain into separate certificates"));
+    }
+
+    attestationKeyBlob_ = attestationKeyBlob;
+    attestationCertificateChain_ = *certs;
     return ndk::ScopedAStatus::ok();
 }
 

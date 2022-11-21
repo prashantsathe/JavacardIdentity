@@ -10,9 +10,14 @@ package {
 cc_library_static {
     name: "android.hardware.identity-jc-hal-common",
     vendor_available: true,
+    defaults: [
+        "identity_use_latest_hal_aidl_ndk_static",
+        "keymint_use_latest_hal_aidl_ndk_static",
+    ],
     srcs: [
         "common/IdentityCredential.cpp",
         "common/IdentityCredentialStore.cpp",
+        "common/PresentationSession.cpp",
         "common/WritableIdentityCredential.cpp",
     ],
     export_include_dirs: [
@@ -40,8 +45,8 @@ cc_library_static {
         "libsoft_attestation_cert",
         "libpuresoftkeymasterdevice",
         "android.hardware.identity-support-lib",
-        "android.hardware.identity-V3-ndk_platform",
-        "android.hardware.keymaster-V3-ndk_platform",
+        "android.hardware.keymaster-V3-ndk",
+        "android.hardware.security.rkp-V3-ndk",
     ],
 }
 
@@ -51,6 +56,10 @@ cc_binary {
     init_rc: ["jc-identity.rc"],
     vintf_fragments: ["jc-identity.xml"],
     vendor: true,
+    defaults: [
+        "identity_use_latest_hal_aidl_ndk_static",
+        "keymint_use_latest_hal_aidl_ndk_static",
+    ],
     cflags: [
         "-Wall",
         "-Wextra",
@@ -70,10 +79,11 @@ cc_binary {
         "libutils",
         "libsoft_attestation_cert",
         "libkeymaster_portable",
+        "libsoft_attestation_cert",
         "libpuresoftkeymasterdevice",
         "android.hardware.identity-support-lib",
-        "android.hardware.identity-V3-ndk_platform",
-        "android.hardware.keymaster-V3-ndk_platform",
+        "android.hardware.keymaster-V3-ndk",
+        "android.hardware.security.rkp-V3-ndk",
         "android.hardware.identity-jc-hal-common",
         "libjcic_transport",
     ],
@@ -85,6 +95,7 @@ cc_binary {
         "android.hardware.jc_identity_credential.xml",
     ],
 }
+
 
 cc_library {
     name: "libjcic_transport",
@@ -108,7 +119,6 @@ cc_library {
         "libbase",
     ],
 }
-
 
 prebuilt_etc {
     name: "android.hardware.jc_identity_credential.xml",

@@ -63,8 +63,8 @@ class JCSecureHardwareProvisioningProxy : public SecureHardwareProvisioningProxy
 
     bool initialize(bool testCredential) override;
 
-    bool initializeForUpdate(bool testCredential, string docType,
-                             vector<uint8_t> encryptedCredentialKeys) override;
+    bool initializeForUpdate(bool testCredential, const string& docType,
+                             const vector<uint8_t>& encryptedCredentialKeys) override;
 
     size_t getHwChunkSize() override;
 
@@ -74,7 +74,12 @@ class JCSecureHardwareProvisioningProxy : public SecureHardwareProvisioningProxy
     optional<vector<uint8_t>> createCredentialKey(const vector<uint8_t>& challenge,
                                                   const vector<uint8_t>& applicationId) override;
 
-    bool startPersonalization(int accessControlProfileCount, vector<int> entryCounts,
+    optional<vector<uint8_t>> createCredentialKeyUsingRkp(
+            const vector<uint8_t>& challenge, const vector<uint8_t>& applicationId,
+            const vector<uint8_t>& attestationKeyBlob,
+            const vector<uint8_t>& attestationKeyCert) override;
+
+    bool startPersonalization(int accessControlProfileCount, const vector<int>& entryCounts,
                               const string& docType,
                               size_t expectedProofOfProvisioningSize) override;
 
@@ -100,9 +105,55 @@ class JCSecureHardwareProvisioningProxy : public SecureHardwareProvisioningProxy
     optional<vector<uint8_t>> finishGetCredentialData(const string& docType) override;
 
   protected:
-	bool isTestCredential;
+    bool isTestCredential;
+    // See docs for id_.
+    //
+    bool validateId(const string& callerName);
+
+    // On the HAL side we keep track of the ID that was assigned to the libeic object
+    // created in secure hardware. For every call into libeic we validate that this
+    // identifier matches what is on the secure side. This is what the validateId()
+    // method does.
+    //
+    uint32_t id_ = 0;
     AppletConnection mAppletConnection;
 };
+
+// This implementation uses libEmbeddedIC in-process.
+//
+class JCSecureHardwareSessionProxy : public SecureHardwareSessionProxy {
+  public:
+    JCSecureHardwareSessionProxy() = default;
+    virtual ~JCSecureHardwareSessionProxy();
+
+    bool initialize() override;
+
+    bool shutdown() override;
+
+    optional<uint64_t> getAuthChallenge() override;
+
+    optional<uint32_t> getId() override;
+
+    // Returns private key
+    optional<vector<uint8_t>> getEphemeralKeyPair() override;
+
+    bool setReaderEphemeralPublicKey(const vector<uint8_t>& readerEphemeralPublicKey) override;
+
+    bool setSessionTranscript(const vector<uint8_t>& sessionTranscript) override;
+
+  protected:
+    // See docs for id_.
+    //
+    bool validateId(const string& callerName);
+
+    // On the HAL side we keep track of the ID that was assigned to the libeic object
+    // created in secure hardware. For every call into libeic we validate that this
+    // identifier matches what is on the secure side. This is what the validateId()
+    // method does.
+    //
+    uint32_t id_ = 0;
+};
+
 
 // This implementation uses javacard IC implementation.
 //
@@ -111,13 +162,15 @@ class JCSecureHardwarePresentationProxy : public SecureHardwarePresentationProxy
     JCSecureHardwarePresentationProxy();
     virtual ~JCSecureHardwarePresentationProxy();
 
-    bool initialize(bool testCredential, string docType,
-                    vector<uint8_t> encryptedCredentialKeys) override;
+    bool initialize(uint32_t sessionId, bool testCredential, const string& docType,
+                    const vector<uint8_t>& encryptedCredentialKeys) override;
 
     size_t getHwChunkSize() override;
 
+    bool shutdown() override;
+
     // Returns publicKeyCert (1st component) and signingKeyBlob (2nd component)
-    optional<pair<vector<uint8_t>, vector<uint8_t>>> generateSigningKeyPair(string docType,
+    optional<pair<vector<uint8_t>, vector<uint8_t>>> generateSigningKeyPair(const string& docType,
                                                                             time_t now) override;
 
     // Returns private key
@@ -169,9 +222,17 @@ class JCSecureHardwarePresentationProxy : public SecureHardwarePresentationProxy
                                              const vector<uint8_t>& challenge,
                                              size_t proofOfOwnershipCborSize) override;
 
-    bool shutdown() override;
-
   protected:
+    // See docs for id_.
+    //
+    bool validateId(const string& callerName);
+
+    // On the HAL side we keep track of the ID that was assigned to the libeic object
+    // created in secure hardware. For every call into libeic we validate that this
+    // identifier matches what is on the secure side. This is what the validateId()
+    // method does.
+    //
+    uint32_t id_ = 0;
     AppletConnection mAppletConnection;
 };
 
@@ -188,6 +249,10 @@ class JCSecureHardwareProxyFactory : public SecureHardwareProxyFactory {
 
     sp<SecureHardwareProvisioningProxy> createProvisioningProxy() override {
         return new JCSecureHardwareProvisioningProxy();
+    }
+
+    sp<SecureHardwareSessionProxy> createSessionProxy() override {
+        return new JCSecureHardwareSessionProxy();
     }
 
     sp<SecureHardwarePresentationProxy> createPresentationProxy() override {
