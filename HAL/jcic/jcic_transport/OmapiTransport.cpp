@@ -32,8 +32,8 @@ bool OmapiTransport::openConnection() {
     return true;
 }
 
-bool OmapiTransport::transmit(const std::vector<uint8_t> inData, std::vector<uint8_t>& output) {
-    output = std::move(inData);
+bool OmapiTransport::sendData(const uint8_t* inData, const size_t inLen, std::vector<uint8_t>& output) {
+    //output = std::move(inData);
     return true;
 }
 

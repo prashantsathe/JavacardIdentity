@@ -104,7 +104,7 @@ ResponseApdu AppletConnection::openChannelToApplet() {
 	CommandApdu command{0x00, 0xA4, 0x04, 0, kAndroidIdentityCredentialAID.size(), 0};
     std::copy(kAndroidIdentityCredentialAID.begin(), kAndroidIdentityCredentialAID.end(), command.dataBegin());
     mOpenChannel = 0x00;
-	mTransportClient->transmit(command.vector(), resp);
+	mTransportClient->sendData(&command.vector()[0], command.size(), resp);
 	if((*(resp.end() - 2) != 0x90) &&
             (*(resp.end() - 1)) != 0x00) {
 		return ResponseApdu({});
@@ -164,7 +164,7 @@ const ResponseApdu AppletConnection::transmit(CommandApdu& command) {
         }
 
         std::vector<uint8_t> responseData;
-        mTransportClient->transmit(subCommand.vector(), responseData);
+        mTransportClient->sendData(&subCommand.vector()[0], subCommand.size(), responseData);
 
         fullResponse = responseData;
     
@@ -186,7 +186,7 @@ const ResponseApdu AppletConnection::transmit(CommandApdu& command) {
                 CommandApdu(mOpenChannel, kINSGetRespone, 0, 0, 0, le == 0 ? mApduMaxBufferSize : le);
 
         std::vector<uint8_t> responseData;
-        mTransportClient->transmit(getResponse.vector(), responseData);
+        mTransportClient->sendData(&getResponse.vector()[0], getResponse.size(), responseData);
         if (responseData.size() < 2) {
             *(fullResponse.end() - 2) = 0x67;  // Wrong length
             *(fullResponse.end() - 1) = 0x00;

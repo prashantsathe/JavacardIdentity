@@ -34,7 +34,7 @@ class ITransportClient {
     /**
      * Send data over communication channel and receives data back from the remote end.
      */
-    virtual bool transmit(const std::vector<uint8_t> inData, std::vector<uint8_t>& output) = 0;
+    virtual bool sendData(const uint8_t* inData, const size_t inLen, std::vector<uint8_t>& output) = 0;
     /**
      * Closes the connection.
      */
@@ -61,9 +61,9 @@ public:
      */
 	bool openConnection() override;
     /**
-     * Transmists the data over the opened basic channel and receives the data back.
+     * Sends data over socket and receives data back.
      */
-    bool transmit(const std::vector<uint8_t> inData, std::vector<uint8_t>& output) override;
+    bool sendData(const uint8_t* inData, const size_t inLen, std::vector<uint8_t>& output) override;
     /**
      * Closes the connection.
      */
@@ -88,7 +88,7 @@ public:
     /**
      * Sends data over socket and receives data back.
      */
-    bool transmit(const std::vector<uint8_t> inData, std::vector<uint8_t>& output) override;
+    bool sendData(const uint8_t* inData, const size_t inLen, std::vector<uint8_t>& output) override;
     /**
      * Closes the connection.
      */
@@ -104,7 +104,7 @@ private:
      */
     int mSocket;
     bool socketStatus;
-
+    bool readData(std::vector<uint8_t>& output);
 };
 
 }

@@ -5,6 +5,7 @@ package {
     // to get the below license kinds:
     //   SPDX-license-identifier-Apache-2.0
     default_applicable_licenses: ["hardware_interfaces_license"],
+    //default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 cc_library_static {
@@ -51,7 +52,7 @@ cc_library_static {
 }
 
 cc_binary {
-    name: "android.hardware.identity-service.jcic",
+    name: "android.hardware.identity_credential@1.0-service.google",
     relative_install_path: "hw",
     init_rc: ["jc-identity.rc"],
     vintf_fragments: ["jc-identity.xml"],
@@ -113,6 +114,12 @@ cc_library {
         "jcic_transport/TransportFactory.cpp",
         "jcic_transport/SocketTransport.cpp",
         "jcic_transport/OmapiTransport.cpp",
+    ],
+    cflags: [
+        "-Wall",
+        "-Wextra",
+        "-g",
+        "-Wno-unused-parameter",
     ],
     shared_libs: [
         "libbinder",

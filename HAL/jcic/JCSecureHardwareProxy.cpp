@@ -425,20 +425,65 @@ optional<vector<uint8_t>> JCSecureHardwareProvisioningProxy::createCredentialKey
 optional<vector<uint8_t>> JCSecureHardwareProvisioningProxy::createCredentialKeyUsingRkp(
         const vector<uint8_t>& challenge, const vector<uint8_t>& applicationId,
         const vector<uint8_t>& attestationKeyBlob, const vector<uint8_t>& attstationKeyCert) {
-    size_t publicKeyCertSize = 4096;
-    vector<uint8_t> publicKeyCert(publicKeyCertSize);
-#if 0
-    if (!eicProvisioningCreateCredentialKey(&ctx_, challenge.data(), challenge.size(),
-                                            applicationId.data(), applicationId.size(),
-                                            attestationKeyBlob.data(), attestationKeyBlob.size(),
-                                            attstationKeyCert.data(), attstationKeyCert.size(),
-                                            publicKeyCert.data(), &publicKeyCertSize)) {
-        LOG(ERROR) << "error creating credential key";
-        return std::nullopt;
+
+    uint64_t nowMs = time(nullptr) * 1000;
+    uint64_t expireTimeMs = nowMs + ((uint64_t)(365 * 24 * 60 * 60) * 1000);
+    const vector<uint8_t> attestCertIssuer(attCertIssuer.begin(), attCertIssuer.end());
+
+    cppbor::Array pArray;
+    pArray.add(challenge)
+			.add(applicationId)
+			.add(nowMs)
+			.add(expireTimeMs)
+			.add(attestationKeyBlob)
+			.add(attestCertIssuer);
+    vector<uint8_t> encodedCbor = pArray.encode();
+
+    LOG(ERROR) << "## sending INS_ICS_CREATE_CREDENTIAL_KEY";
+    // Send the command to the applet to create a new credential
+    CommandApdu command{AppletConnection::CLA_PROPRIETARY,
+            AppletConnection::INS_ICS_CREATE_CREDENTIAL_KEY, 0, 0, encodedCbor.size(), 0};
+    std::copy(encodedCbor.begin(), encodedCbor.end(), command.dataBegin());
+
+    ResponseApdu response = mAppletConnection.transmit(command);
+    if (!response.ok() || (response.status() != AppletConnection::SW_OK)) {
+        return {};
     }
-#endif
-    publicKeyCert.resize(publicKeyCertSize);
-    return publicKeyCert;
+    vector<uint8_t> responseCbor(response.dataSize());
+    std::copy(response.dataBegin(), response.dataEnd(), responseCbor.begin());
+    auto [item, _, message] = cppbor::parse(responseCbor);
+    if (item == nullptr) {
+        LOG(ERROR) << "INS_ICS_CREATE_CREDENTIAL_KEY response is not valid CBOR: " << message;
+        return {};
+    }
+
+    const cppbor::Array* arrayItem = item->asArray();
+    if (arrayItem == nullptr || arrayItem->size() != 2) {
+        LOG(ERROR) << "INS_ICS_CREATE_CREDENTIAL_KEY response is not an array with two elements";
+        return {};
+    }
+
+    const cppbor::Uint* successCode = (*arrayItem)[0]->asUint();
+    if(successCode->value() != 0) {
+        LOG(ERROR) << "INS_ICS_CREATE_CREDENTIAL_KEY response is not success";
+        return {};
+    }
+    const cppbor::Array* returnArray = (*arrayItem)[1]->asArray();
+    const cppbor::Bstr* pubKeyCertBstr = (*returnArray)[0]->asBstr();
+    const vector<uint8_t> pubKeyCert = pubKeyCertBstr->value();
+    if(pubKeyCert.size() == 0) {
+        LOG(ERROR) << "INS_ICS_CREATE_CREDENTIAL_KEY, Crdential Key certificate of 0 length.";
+        return {};
+    }
+    LOG(ERROR) << "INS_ICS_CREATE_CREDENTIAL_KEY attested certificate from Applet :";
+    printByteArray(pubKeyCert.data(), pubKeyCert.size());
+
+	vector<uint8_t> ret;
+	ret.insert(ret.end(), pubKeyCert.begin(), pubKeyCert.end());
+	ret.insert(ret.end(), attstationKeyCert.begin(), attstationKeyCert.end());
+    LOG(ERROR) << "## INS_ICS_GET_CERT_CHAIN attested certificate chain :";
+    printByteArray(ret.data(), ret.size());
+    return ret;
 }
 
 bool JCSecureHardwareProvisioningProxy::startPersonalization(
