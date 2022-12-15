@@ -71,43 +71,27 @@ bool AppletConnection::connectToTransportClient() {
     return mTransportClient != nullptr && mTransportClient->isConnected();
 }
 
-ResponseApdu AppletConnection::openChannelToApplet() {
+bool AppletConnection::openChannelToApplet() {
+
+    // In case of Omapi, Applet selection must be already done in OmapiTransport.cpp
+    if (!isEmulator) {
+        return mTransportClient->isConnected();
+    }
+
     if (isChannelOpen()) {
         close();
     }
     if (mTransportClient == nullptr) {  // Not connected to SE service
-        return ResponseApdu({});
+        return false;
     }
 
     std::vector<uint8_t> resp;
-    /*mTransportClient->openLogicalChannel(
-        kAndroidIdentityCredentialAID, 00,
-        [&](LogicalChannelResponse selectResponse, SecureElementStatus status) {
-            if (status == SecureElementStatus::SUCCESS) {
-                resp = selectResponse.selectResponse;
-                // TODO: verify that an APDU buffer >255 represent support for extended length APDU 
-                // APDU buffer size is encoded in select response
-                mApduMaxBufferSize = (*resp.begin() << 8) + *(resp.begin() + 1);
-                mApduMaxBufferSize -= mApduMaxBufferSize <= (kDefaultApduSize + kDefMaxApduHeader)
-                                              ? kDefMaxApduHeader
-                                              : kExtendedMaxApduHeader;
-
-                // Chunck size is encoded in select response
-                mAppletChunkSize = (*(resp.begin()+2) << 8) + *(resp.begin() + 3);
-
-                // Actual maximum data chunk size needs to take cbor header in account
-                mHalChunkSize = mAppletChunkSize - kMaxCBORHeader;
-
-                mOpenChannel = selectResponse.channelNumber;
-            }
-        });*/
-	CommandApdu command{0x00, 0xA4, 0x04, 0, kAndroidIdentityCredentialAID.size(), 0};
+    CommandApdu command{0x00, 0xA4, 0x04, 0, kAndroidIdentityCredentialAID.size(), 0};
     std::copy(kAndroidIdentityCredentialAID.begin(), kAndroidIdentityCredentialAID.end(), command.dataBegin());
     mOpenChannel = 0x00;
 	mTransportClient->sendData(&command.vector()[0], command.size(), resp);
-	if((*(resp.end() - 2) != 0x90) &&
-            (*(resp.end() - 1)) != 0x00) {
-		return ResponseApdu({});
+	if ((*(resp.end() - 2) != 0x90) && (*(resp.end() - 1)) != 0x00) {
+		return false;
 	}
 	// APDU buffer size is encoded in select response
 	mApduMaxBufferSize = (*resp.begin() << 8) + *(resp.begin() + 1);
@@ -120,21 +104,25 @@ ResponseApdu AppletConnection::openChannelToApplet() {
 
 	// Actual maximum data chunk size needs to take cbor header in account
 	mHalChunkSize = mAppletChunkSize - kMaxCBORHeader;
-
-    return ResponseApdu(resp);
+    return true;
 }
 
 const ResponseApdu AppletConnection::transmit(CommandApdu& command) {
-    if (!isChannelOpen() || mTransportClient == nullptr) {
-        return ResponseApdu(std::vector<uint8_t>{0});
-    }
-
     bool getResponseEmpty = false;
     std::vector<uint8_t> fullResponse;
     uint16_t nrOfAPDUchains = 1;
- 
-    // Configure the logical channel
-    *command.begin() |= mOpenChannel;
+
+    if (!isEmulator) {
+        if (!mTransportClient->isConnected()) {
+            return ResponseApdu(std::vector<uint8_t>{0});
+        }
+    } else {
+        if (!isChannelOpen() || mTransportClient == nullptr)
+            return ResponseApdu(std::vector<uint8_t>{0});
+
+        // Configure the logical channel
+        *command.begin() |= mOpenChannel;
+    }
 
     if (command.size() > mApduMaxBufferSize) {
         // Too big for APDU buffer, perform APDU chaining

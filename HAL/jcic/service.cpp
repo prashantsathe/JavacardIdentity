@@ -38,7 +38,7 @@ int main(int /*argc*/, char* argv[]) {
 
     sp<SecureHardwareProxyFactory> hwProxyFactory = new JCSecureHardwareProxyFactory();
     const std::string remotelyProvisionedComponentName =
-            std::string(IRemotelyProvisionedComponent::descriptor) + "/default";
+            std::string(IRemotelyProvisionedComponent::descriptor) + "/strongbox";
 
     ABinderProcess_setThreadPoolMaxThreadCount(0);
     std::shared_ptr<IdentityCredentialStore> store =

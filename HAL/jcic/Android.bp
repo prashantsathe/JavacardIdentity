@@ -5,7 +5,6 @@ package {
     // to get the below license kinds:
     //   SPDX-license-identifier-Apache-2.0
     default_applicable_licenses: ["hardware_interfaces_license"],
-    //default_applicable_licenses: ["Android-Apache-2.0"],
 }
 
 cc_library_static {
@@ -35,6 +34,7 @@ cc_library_static {
         "libcrypto",
         "libbinder_ndk",
         "libkeymaster_messages",
+        "android.se.omapi-V1-ndk",
     ],
     static_libs: [
         "libbase",
@@ -87,6 +87,7 @@ cc_binary {
         "android.hardware.security.rkp-V3-ndk",
         "android.hardware.identity-jc-hal-common",
         "libjcic_transport",
+        "android.se.omapi-V1-ndk",
     ],
     srcs: [
         "service.cpp",
@@ -105,6 +106,10 @@ cc_library {
     vndk: {
         enabled: true,
     },
+    defaults: [
+        "identity_use_latest_hal_aidl_ndk_static",
+        "keymint_use_latest_hal_aidl_ndk_static",
+    ],
     export_include_dirs: [
         "jcic_transport",
     ],
@@ -124,6 +129,10 @@ cc_library {
     shared_libs: [
         "libbinder",
         "libbase",
+        "liblog",
+        "libbinder_ndk",
+        "android.se.omapi-V1-ndk",
+        "libhardware"
     ],
 }
 

@@ -87,7 +87,7 @@ public:
     /**
      * Select the applet on the secure element and returns the select response message.
      */
-    ResponseApdu openChannelToApplet();
+    bool openChannelToApplet();
 
     /**
      * If open, closes the open channel to the applet. Returns an error message if channel was not
@@ -120,6 +120,7 @@ private:
     uint16_t mHalChunkSize = 0;
 
     int8_t mOpenChannel = -1;
+    bool isEmulator;
 };
 
 }  // namespace aidl::android::hardware::identity

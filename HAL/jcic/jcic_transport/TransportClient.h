@@ -16,9 +16,18 @@
  */
 #ifndef __SE_TRANSPORT__
 #define __SE_TRANSPORT__
+#include <aidl/android/se/omapi/BnSecureElementListener.h>
+#include <aidl/android/se/omapi/ISecureElementChannel.h>
+#include <aidl/android/se/omapi/ISecureElementListener.h>
+#include <aidl/android/se/omapi/ISecureElementReader.h>
+#include <aidl/android/se/omapi/ISecureElementService.h>
+#include <aidl/android/se/omapi/ISecureElementSession.h>
 
+#include <map>
 namespace se_transport {
 
+using namespace std;
+using std::vector;
 /**
  * ITransport is an abstract interface with a set of virtual methods that allow communication between the keymaster
  * HAL and the secure element.
@@ -55,25 +64,40 @@ class OmapiTransport : public ITransportClient {
 
 public:
 
+  public:
+    OmapiTransport() : omapiSeService(nullptr), eSEReader(nullptr), session(nullptr),
+        channel(nullptr), mVSReaders({}) {
+    }
+
     /**
-     * Gets the binder instance of ISEService, gets the reader corresponding to secure element, establishes a session
-     * and opens a basic channel.
+     * Gets the binder instance of ISEService, gets te reader corresponding to secure element,
+     * establishes a session and opens a logical channel.
      */
-	bool openConnection() override;
+    bool openConnection() override;
     /**
-     * Sends data over socket and receives data back.
+     * Transmists the data over the opened basic channel and receives the data back.
      */
     bool sendData(const uint8_t* inData, const size_t inLen, std::vector<uint8_t>& output) override;
+
     /**
      * Closes the connection.
      */
     bool closeConnection() override;
     /**
-     * Returns the state of the connection status. Returns true if the connection is active, false if connection is
-     * broken.
+     * Returns the state of the connection status. Returns true if the connection is active, false
+     * if connection is broken.
      */
     bool isConnected() override;
 
+  private:
+    std::shared_ptr<aidl::android::se::omapi::ISecureElementService> omapiSeService;
+    std::shared_ptr<aidl::android::se::omapi::ISecureElementReader> eSEReader;
+    std::shared_ptr<aidl::android::se::omapi::ISecureElementSession> session;
+    std::shared_ptr<aidl::android::se::omapi::ISecureElementChannel> channel;
+    std::map<std::string, std::shared_ptr<aidl::android::se::omapi::ISecureElementReader>> mVSReaders;
+    bool initialize();
+    bool internalTransmitApdu(std::shared_ptr<aidl::android::se::omapi::ISecureElementReader> reader,
+                         std::vector<uint8_t> apdu, std::vector<uint8_t>& transmitResponse);
 };
 
 class SocketTransport : public ITransportClient {

@@ -127,8 +127,7 @@ bool JCSecureHardwareProxy::getHardwareInfo(string* storeName, string* storeAuth
 
     // Initiate communication to applet
     if (!mAppletConnection.isChannelOpen()) {
-        ResponseApdu selectResponse = mAppletConnection.openChannelToApplet();
-        if (!selectResponse.ok() || selectResponse.status() != AppletConnection::SW_OK) {
+        if (!mAppletConnection.openChannelToApplet()) {
             return false;
         }
     }
@@ -211,9 +210,8 @@ bool JCSecureHardwareProvisioningProxy::initialize(bool testCredential) {
 
     // Initiate communication to applet
     if (!mAppletConnection.isChannelOpen()) {
-        ResponseApdu selectResponse = mAppletConnection.openChannelToApplet();
-        if (!selectResponse.ok() || selectResponse.status() != AppletConnection::SW_OK) {
-            return false;
+        if (!mAppletConnection.openChannelToApplet()) {
+                    return false;
         }
     }
 	cppbor::Array pArray;
@@ -268,9 +266,8 @@ bool JCSecureHardwareProvisioningProxy::initializeForUpdate(
 
     // Initiate communication to applet
     if (!mAppletConnection.isChannelOpen()) {
-        ResponseApdu selectResponse = mAppletConnection.openChannelToApplet();
-        if (!selectResponse.ok() || selectResponse.status() != AppletConnection::SW_OK) {
-            return false;
+        if (!mAppletConnection.openChannelToApplet()) {
+                    return false;
         }
     }
 
@@ -439,7 +436,7 @@ optional<vector<uint8_t>> JCSecureHardwareProvisioningProxy::createCredentialKey
 			.add(attestCertIssuer);
     vector<uint8_t> encodedCbor = pArray.encode();
 
-    LOG(ERROR) << "## sending INS_ICS_CREATE_CREDENTIAL_KEY";
+
     // Send the command to the applet to create a new credential
     CommandApdu command{AppletConnection::CLA_PROPRIETARY,
             AppletConnection::INS_ICS_CREATE_CREDENTIAL_KEY, 0, 0, encodedCbor.size(), 0};
@@ -478,11 +475,8 @@ optional<vector<uint8_t>> JCSecureHardwareProvisioningProxy::createCredentialKey
     LOG(ERROR) << "INS_ICS_CREATE_CREDENTIAL_KEY attested certificate from Applet :";
     printByteArray(pubKeyCert.data(), pubKeyCert.size());
 
-	vector<uint8_t> ret;
-	ret.insert(ret.end(), pubKeyCert.begin(), pubKeyCert.end());
-	ret.insert(ret.end(), attstationKeyCert.begin(), attstationKeyCert.end());
-    LOG(ERROR) << "## INS_ICS_GET_CERT_CHAIN attested certificate chain :";
-    printByteArray(ret.data(), ret.size());
+    vector<uint8_t> ret;
+    ret.insert(ret.end(), pubKeyCert.begin(), pubKeyCert.end());
     return ret;
 }
 
@@ -813,9 +807,8 @@ bool JCSecureHardwarePresentationProxy::initialize(uint32_t sessionId, bool test
 
     // Initiate communication to applet
     if (!mAppletConnection.isChannelOpen()) {
-        ResponseApdu selectResponse = mAppletConnection.openChannelToApplet();
-        if (!selectResponse.ok() || selectResponse.status() != AppletConnection::SW_OK) {
-            return false;
+        if (!mAppletConnection.openChannelToApplet()) {
+                    return false;
         }
     }
 
