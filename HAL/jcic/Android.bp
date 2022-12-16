@@ -52,7 +52,7 @@ cc_library_static {
 }
 
 cc_binary {
-    # TODO: change the binary name as per Android nomenclature
+    // TODO: change the binary name as per Android nomenclature
     name: "android.hardware.identity_credential@1.0-service.google",
     relative_install_path: "hw",
     init_rc: ["jc-identity.rc"],
