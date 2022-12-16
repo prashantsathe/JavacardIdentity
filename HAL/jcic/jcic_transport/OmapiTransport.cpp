@@ -275,5 +275,4 @@ bool OmapiTransport::isConnected() {
     LOG(ERROR) << "Connection initialization not completed";
     return false;
 }
-#endif
 }
